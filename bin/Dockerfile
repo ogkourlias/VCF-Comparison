@@ -29,12 +29,18 @@ RUN apt-get update -y \
     && apt-get install -y \
         # Getters & VSC.
         wget=1.21.3-1ubuntu1 \
+        curl \
         # Languages.
         # C++
         g++=4:12.2.0-3ubuntu1 \
         # Python
         python-is-python3 \
-        # Other compilers, builders & compressors.
+        pip \
+        # Other compilers, builders & compressors & libs.
+        libbz2-dev \
+        liblzma-dev \
+        libssl-dev \
+        libcurl4-openssl-dev \
         make=4.3-4.1build1
         # Tools
         # Other
@@ -42,15 +48,14 @@ RUN apt-get update -y \
 # Non-apt Tools
 
 # Python Packages
-RUN cd /tmp/init \
-    pip install pytabix pandas argparse numpy
+RUN pip install pytabix pandas argparse numpy
     
 # HTSlib 1.18 Install
 RUN cd /tmp/init \
-    wget https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2 \
-    && tar -xvjf /tmp/init/htslib-1.18.tar.bz2 \
+    && wget https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2 \
+    && tar -xvjf htslib-1.18.tar.bz2 \
     && cd htslib-1.18 \
-    && ./configure --prefix=/usr/bin/ \
+    && ./configure --prefix=/usr/ --enable-libcurl \
     && make \
     && make install
 
