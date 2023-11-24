@@ -73,14 +73,44 @@ process chrComp {
 
   script:
   """
-  ./vcf_prase.py -f ${vcf_input} -c ${vcf_comp} -ih ${input_headers} -ch ${compare_headers} -chr ${chr_txt.simpleName}
+  vcf_parse.py -f ${vcf_input} -c ${vcf_comp} -ih ${input_headers} -ch ${compare_headers} -chr ${chr_txt.simpleName}
   """
 }
+
+process combineCsv {
+  containerOptions '--bind /groups/'
+  errorStrategy 'retry'
+  time '6h'
+  memory '16 GB'
+  cpus 1
+  maxRetries 0
+
+  input:
+  path csv_files
+
+  output:
+  path "input.csv"
+  path "comp.csv"
+
+  script:
+  """
+  cat *_1.csv | head -n 1  > input.csv
+  cat *_1.csv | sed '/^CHROM/d'  >> input.csv
+  cat *_2.csv | head -n 1  > comp.csv
+  cat *_2.csv | sed '/^CHROM/d'  >> comp.csv
+  """
+}
+
 
 
 workflow {
   getHeaders(params.vcf_input, params.vcf_input_tbi, params.vcf_comp, params.vcf_comp_tbi)
   chrs = getChrs(params.vcf_input, params.vcf_input_tbi).flatten()
-  chrComp(chrs, params.vcf_input, params.vcf_input_tbi, params.vcf_comp,
-   params.vcf_comp_tbi ,getHeaders.output.input_headers, getHeaders.output.compare_headers)
+
+  csv_files = chrComp(chrs, params.vcf_input, params.vcf_input_tbi, params.vcf_comp, 
+    params.vcf_comp_tbi ,getHeaders.output.input_headers, getHeaders.output.compare_headers).collect()
+  
+  combineCsv(csv_files)
+  
+  
   }

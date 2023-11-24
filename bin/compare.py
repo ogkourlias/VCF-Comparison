@@ -15,7 +15,6 @@ __version__ = "0.1"
 # IMPORTS
 import sys
 import argparse
-import tabix
 import numpy as np
 import pandas as pd
 
@@ -39,20 +38,7 @@ def arg_parse():
     )
     parser.add_argument('-f', '--file', type=str)
     parser.add_argument('-c', '--compare', type=str)
-    parser.add_argument('-ih', '--input_header', type=str)
-    parser.add_argument('-ch', '--comp_header', type=str)
-    parser.add_argument('-chr', '--chr', type=str)
-
     return parser.parse_args()
-
-def open_tbi(input_file):
-    
-    """
-    Tabix file opener function.
-    :input_file: Input VCF file.
-    :return: Opened tabix file.
-    """
-    return tabix.open(input_file)
 
 def compare(chr, i_handle, c_handle, input_headers_f, comp_headers_f):
 
@@ -72,47 +58,11 @@ def compare(chr, i_handle, c_handle, input_headers_f, comp_headers_f):
     i_df = pd.read_csv(input_headers_f, sep='\t')
     c_df = pd.read_csv(comp_headers_f, sep='\t')
 
-    # out_f = f"{chr}.txt"
-    
-    # Get generator for input vcf file.
-    rec_gen = i_handle.query(chr, 1, 999999999)
-    # Iterate over generator to create list and find min/max positions of records.
-    recs = [rec for rec in rec_gen]
-    min, max = recs[0][1], recs[-1][1]
-
-    # Query on chromosome in range of min, max values.
-    c_rec_gen = c_handle.query(chr, int(min), int(max))
-    recs_c = [rec for rec in c_rec_gen]
-
-    # Initiate alt difference counter.
-    alt_diff = []
-
-    # For each record in the input file.
-    for rec in recs:
-        # For each record within selected region of comparison file.
-        for rec_c in recs_c:
-            # If overlapping positions are found between records.
-            if rec[1] == rec_c[1]:
-                # Insert row at end of dataframes.
-                i_df.loc[len(i_df)] = rec
-                c_df.loc[len(c_df)] = rec_c
-                
-                # Check if SNP's are equal.
-                # If not, append 1 for counted difference.
-                if rec[4] != rec_c[4]:
-                    alt_diff.append(1)
-                else:
-                    alt_diff.append(0)
-    
-    # Insert new column with the alt difference marker.
-    i_df['alt_diff'] = alt_diff
-    c_df['alt_diff'] = alt_diff
-
     return i_df, c_df
 
 def write_output(i_df, c_df):
 
-    """
+    """ 
     Take dataframes with intersections and difference counters to write them to output file.
     
     :i_df: Input dataframe.
@@ -130,13 +80,6 @@ def main(args):
     """ Main function """
     # Get args.
     args = arg_parse()
-    # Open indexe vcf files.
-    i_tbi = open_tbi(args.file)
-    c_tbi = open_tbi(args.compare)
-    # Get dataframes with compared and intersecting entries.
-    i_df, c_df = compare(args.chr, i_tbi, c_tbi, args.input_header, args.comp_header)
-    # Write to tsv file for next nextflow process.
-    write_output(i_df, c_df)
     # FINISH
     return 0
 
