@@ -89,8 +89,8 @@ process combineCsv {
   path csv_files
 
   output:
-  path "input.csv"
-  path "comp.csv"
+  path "input.csv", emit: csv_input
+  path "comp.csv", emit: csv_comp
 
   script:
   """
@@ -98,6 +98,24 @@ process combineCsv {
   cat *_1.csv | sed '/^CHROM/d'  >> input.csv
   cat *_2.csv | head -n 1  > comp.csv
   cat *_2.csv | sed '/^CHROM/d'  >> comp.csv
+  """
+}
+
+process exploreCsv {
+  containerOptions '--bind /groups/'
+  errorStrategy 'retry'
+  time '6h'
+  memory '16 GB'
+  cpus 1
+  maxRetries 0
+
+  input:
+  path csv_input
+  path csv_comp
+
+  script:
+  """
+  compare.py -i ${csv_input} -c ${csv_comp}
   """
 }
 
@@ -111,6 +129,6 @@ workflow {
     params.vcf_comp_tbi ,getHeaders.output.input_headers, getHeaders.output.compare_headers).collect()
   
   combineCsv(csv_files)
-  
+
   
   }
