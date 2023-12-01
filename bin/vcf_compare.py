@@ -34,19 +34,20 @@ def arg_parse():
     :chr: Test file named as input chromosome.
     :return: Argparse namespace object.
     """
-    
+
     # Parser init
     parser = argparse.ArgumentParser(prog="VcfCompare")
-    parser.add_argument('-f', '--file', type=str)
-    parser.add_argument('-c', '--compare', type=str)
-    parser.add_argument('-ih', '--input_header', type=str)
-    parser.add_argument('-ch', '--comp_header', type=str)
-    parser.add_argument('-chr', '--chr', type=str)
-    parser.add_argument('-o', '--output', type=str)
+    parser.add_argument("-f", "--file", type=str)
+    parser.add_argument("-c", "--compare", type=str)
+    parser.add_argument("-ih", "--input_header", type=str)
+    parser.add_argument("-ch", "--comp_header", type=str)
+    parser.add_argument("-chr", "--chr", type=str)
+    parser.add_argument("-o", "--output", type=str)
     return parser.parse_args()
 
+
 def open_tbi(input_file):
-    
+
     """
     Tabix file opener function.
     :input_file: Input VCF file.
@@ -54,7 +55,8 @@ def open_tbi(input_file):
     """
     return tabix.open(input_file)
 
-def compare(chr, i_handle, c_handle, headers, output, chunk_size = 100):
+
+def compare(chr, i_handle, c_handle, headers, output, chunk_size=100):
 
     """
     Takes chromosome entry from nextflow process and compare record entries between two files.
@@ -72,46 +74,96 @@ def compare(chr, i_handle, c_handle, headers, output, chunk_size = 100):
     # Get start and stop positions of chr selection.
     start, stop = get_range(chr, i_handle)
 
-    # Open and query tabix comparison file.
+    # Open and query tabix files.
     comp_f = open_tbi(c_handle)
     comp_i = open_tbi(i_handle)
 
-    #comp_gen = comp_f.query(chr, int(start), int(stop))start
-    with open(output, 'w') as f:
+    # Open the output file.
+    with open(output, "w") as f:
+        # For every chunk inbetween start/stop selection, get the cunk.
         for chunk in range(start, stop, chunk_size):
+            # CLI feedback.
             print(f"Comparing between {chunk} - {chunk+chunk_size}")
             print(f"{(stop-chunk)/chunk_size} iterations left.")
 
-            i_records = comp_i.query(chr, chunk, chunk+chunk_size)
+            # Query the chunk in input file and make a list.
+            i_records = comp_i.query(chr, chunk, chunk + chunk_size)
             i_records = [rec for rec in i_records]
 
-            c_records = comp_f.query(chr, chunk, chunk+chunk_size)
+            # Query the chunk in the comparison file for a generator.
+            c_records = comp_f.query(chr, chunk, chunk + chunk_size)
 
-            f.write("varID\t" + "samplesize\t" + "isIndel\t" + "mafI\t" +"mafC\t" + "hweI\t" + "hweC\t" "pcc\n")
+            # Write headers to output file.
+            f.write(
+                "varID\t"
+                + "samplesize\t"
+                + "isIndel\t"
+                + "mafI\t"
+                + "mafC\t"
+                + "hweI\t"
+                + "hweC\t"
+                "pcc\n"
+            )
+            
+            # For comparison record in the generator.
             for c_record in c_records:
+                
+                # For each retrieved record check whether there's a match in the input record list.
                 for i_record in i_records:
-                    if i_record[1] == c_record[1] and i_record[3] == c_record[3] and i_record[4] == c_record[4]:
-                        f.write(record_extract(i_record, c_record, list(headers.values())))
+                    if (
+                        i_record[1] == c_record[1] # If CHR is the same.
+                        and i_record[3] == c_record[3] # If ref is the same.
+                        and i_record[4] == c_record[4] # If alt is the same.
+                    ):
+                        f.write(
+                            record_extract(i_record, c_record, list(headers.values()))
+                        )
         # Comparison
-
-
 
     return 0
 
+
 def header_subset(input_headers_f, comp_headers_f):
+    """Looks for header intersections between files and retrieves
+    the relevant indexes.
+
+    Args:
+        input_headers_f (path): File path for input headers.
+        comp_headers_f (path): File path for input headers.
+
+    Returns:
+        dictionary: Dictionary of indexes corresponding to intersecting headers between vcf files.
+    """
+    
+    # Initialise an empty dictionary.
     head_idx = {}
-    for header_i in np.genfromtxt(input_headers_f, delimiter='\t', dtype=str):
-        for i, header_c in enumerate(np.genfromtxt(comp_headers_f, delimiter='\t', dtype=str)):
+
+    # For each input header, check whether there is a match in comparison headers.
+    for header_i in np.genfromtxt(input_headers_f, delimiter="\t", dtype=str):
+        for i, header_c in enumerate(
+            np.genfromtxt(comp_headers_f, delimiter="\t", dtype=str)
+        ): # If match is found, save the index in the dictionary.
             if header_i == header_c:
                 head_idx[header_i] = i
                 break
-    
+
     return head_idx
 
+
 def get_range(chr, i_handle):
+    """Retrieves the start and stop positions of relevant vcf
+    selection.
+
+    Args:
+        chr (string): Chromosome string.
+        i_handle (path): Input vcf file handle.
+
+    Returns:
+        string, string: number strings of start and stop range.
+    """
     # Get start and stop positions of chr selection.
-    with gzip.open(i_handle, 'rt') as f:
-        i = 0
+    with gzip.open(i_handle, "rt") as f:
+        i = 0 
         for line in f:
             if line.startswith(chr):
                 if i == 0:
@@ -123,72 +175,81 @@ def get_range(chr, i_handle):
 
     return start, stop
 
+
 def record_extract(i_record, c_record, head_idx):
-    # Init vars
+    """Extracts the relevant intersection information from two tabix records.
+
+    Args:
+        i_record (list): list containing record entries for input file.
+        c_record (list): list containing record entries for comparison file.
+        head_idx (dict): header indexes
+
+    Returns:
+        string: string to be written to output file.
+    """
+    # Get a column value for each row if header/column index is present in both files.
     c_record = [entry for i, entry in enumerate(c_record) if i in head_idx]
+    
+    # Init new vars.
     sampleSize = 0
     isIndel = 0
 
-    # Extract
-    varID = f"{i_record[0]}:{i_record[1]}:{i_record[3]}_{i_record[4]}" 
-    
+    # Construct identifier string for the record/row.
+    varID = f"{i_record[0]}:{i_record[1]}:{i_record[3]}_{i_record[4]}"
+
+    # Selection is same length because of column index selection.
+    # Zip to iterate over both record values and track index.
     for i, (entry_i, entry_c) in enumerate(zip(i_record, c_record)):
-        match i:
-            case 0 | 1 | 2 | 5 | 6 | 7:
+        match i: # Mathc the index value.
+            case 0 | 1 | 2 | 5 | 6 | 7:  # Values on these indexes are not relevant.
                 continue
 
-            case 3 | 4:
+            case 3 | 4: # Check whether ref or alt contains an indel.
                 if len(entry_i) > 1:
                     isIndel = 1
-            
-            case 8:
+
+            case 8: # Initialse the format column indicators/headers.
                 val_dict_i = {}
                 val_dict_c = {}
 
+                # Store format indication/header into a dictionary with empty values.
                 for ind_i, ind_c in zip(entry_i.split(":"), entry_c.split(":")):
                     val_dict_i[ind_i] = "./."
                     val_dict_c[ind_c] = "./."
 
-            case other:
-                if entry_i == "./.":
-                    entry_i = "./." + (len(val_dict_c) -1) * ":./."
-                for key_i, key_c, val_i, val_c in zip(val_dict_i, val_dict_c, entry_i.split(":"), entry_c.split(":")):
+            case other: # Sample rows.
+                if entry_i == "./.": # If missing, fill list of ./. for zip purposes.
+                    entry_i = "./." + (len(val_dict_c) - 1) * ":./."
+
+                # Assign values in format order.
+                for key_i, key_c, val_i, val_c in zip(
+                    val_dict_i, val_dict_c, entry_i.split(":"), entry_c.split(":")
+                ):
                     val_dict_i[key_i] = val_i
                     val_dict_c[key_c] = val_c
-
+                
+                # If genotype is not missing, sum alternative alele counts.    
                 if val_dict_i["GT"] != "./." and val_dict_c["GT"] != "./.":
                     vals = val_dict_i["GT"].split("/")
-                    sampleSize += (int(vals[0]) +  int(vals[1]))
-        
+                    # Add the summed count to the total samplesize.
+                    sampleSize += int(vals[0]) + int(vals[1])
+
+    # Return a constructed row string for immediate output writing.
     return f"{varID}\t{sampleSize}\t{isIndel}\n"
 
-def write_output(i_df, c_df):
-
-    """
-    Take dataframes with intersections and difference counters to write them to output file.
-    
-    :i_df: Input dataframe.
-    :c_df: Comparison file dataframe.
-    :return: None
-    """
-    file = i_df.iat[0,0]
-    i_df.to_csv(f"{file}_1.csv", sep="\t", index=False)
-    c_df.to_csv(f"{file}_2.csv", sep="\t", index=False)
-    
 
 # MAIN
 def main(args):
-    """ Main function """
+    """Main function"""
     # Get args.
     args = arg_parse()
-    # Get dataframes with compared and intersecting entries.
+    # Get headers
     headers = header_subset(args.input_header, args.comp_header)
+    # Perform comparison and write output.
     compare(args.chr, args.file, args.compare, headers, args.output)
-    # Write to tsv file for next nextflow process.
-    #write_output(i_df, c_df)
     # FINISH
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv))
