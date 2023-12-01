@@ -36,9 +36,7 @@ def arg_parse():
     """
     
     # Parser init
-    parser = argparse.ArgumentParser(
-    prog="TabixParser"
-    )
+    parser = argparse.ArgumentParser(prog="VcfCompare")
     parser.add_argument('-f', '--file', type=str)
     parser.add_argument('-c', '--compare', type=str)
     parser.add_argument('-ih', '--input_header', type=str)
@@ -55,62 +53,6 @@ def open_tbi(input_file):
     :return: Opened tabix file.
     """
     return tabix.open(input_file)
-
-def compare2(chr, i_handle, c_handle, input_headers_f, comp_headers_f):
-
-    """
-    Takes chromosome entry from nextflow process and compare record entries between two files.
-    i in var name = VCF File containing all records for which you want to find hits.
-    c in var name = vCF File to be compard with.
-    :chr: chromosome number in (chr1) format.
-    :i_handle: Input VCF file handle.
-    :c_handle: Comparison VCF file handle.
-    :input_headers_f: Input VCF header file handle.
-    :comp_headers_f: Comparison VCF header file handle.
-    :return: Pandas dataframes containing records with intersectioned positions.
-    """
-
-    # Create pandas DF's with vcf headers as columns.
-    i_df = pd.read_csv(input_headers_f, sep='\t')
-    c_df = pd.read_csv(comp_headers_f, sep='\t')
-
-    # out_f = f"{chr}.txt"
-    
-    # Get generator for input vcf file.
-    rec_gen = i_handle.query(chr, 1, 999999999)
-    # Iterate over generator to create list and find min/max positions of records.
-    recs = [rec for rec in rec_gen]
-    min, max = recs[0][1], recs[-1][1]
-
-    # Query on chromosome in range of min, max values.
-    c_rec_gen = c_handle.query(chr, int(min), int(max))
-    recs_c = [rec for rec in c_rec_gen]
-
-    # Initiate alt difference counter.
-    alt_same = []
-
-    # For each record in the input file.
-    for rec in recs:
-        # For each record within selected region of comparison file.
-        for rec_c in recs_c:
-            # If overlapping positions are found between records.
-            if rec[1] == rec_c[1]:
-                # Insert row at end of dataframes.
-                i_df.loc[len(i_df)] = rec
-                c_df.loc[len(c_df)] = rec_c
-                
-                # Check if SNP's are equal.
-                # If not, append 1 for counted difference.
-                if rec[4] == rec_c[4]:
-                    alt_same.append(1)
-                else:
-                    alt_same.append(0)
-    
-    # Insert new column with the alt difference marker.
-    i_df['alt_same'] = alt_same
-    c_df['alt_same'] = alt_same
-
-    return i_df, c_df
 
 def compare(chr, i_handle, c_handle, headers, output, chunk_size = 100):
 
@@ -135,23 +77,21 @@ def compare(chr, i_handle, c_handle, headers, output, chunk_size = 100):
     comp_i = open_tbi(i_handle)
 
     #comp_gen = comp_f.query(chr, int(start), int(stop))start
+    with open(output, 'w') as f:
+        for chunk in range(start, stop, chunk_size):
+            print(f"Comparing between {chunk} - {chunk+chunk_size}")
+            print(f"{(stop-chunk)/chunk_size} iterations left.")
 
-    for chunk in range(start, stop, chunk_size):
-        i_records = comp_i.query(chr, chunk, chunk+chunk_size)
-        i_records = [rec for rec in i_records]
+            i_records = comp_i.query(chr, chunk, chunk+chunk_size)
+            i_records = [rec for rec in i_records]
 
-        c_records = comp_f.query(chr, chunk, chunk+chunk_size)
+            c_records = comp_f.query(chr, chunk, chunk+chunk_size)
 
-        with open(output, 'w') as f:
-            f.write("\t".join(headers.keys()) + "\n")
+            f.write("varID\t" + "samplesize\t" + "isIndel\t" + "mafI\t" +"mafC\t" + "hweI\t" + "hweC\t" "pcc\n")
             for c_record in c_records:
                 for i_record in i_records:
                     if i_record[1] == c_record[1] and i_record[3] == c_record[3] and i_record[4] == c_record[4]:
-                        record_extract(i_record, c_record)
-                        
-                    
-        
-
+                        f.write(record_extract(i_record, c_record, list(headers.values())))
         # Comparison
 
 
@@ -165,7 +105,7 @@ def header_subset(input_headers_f, comp_headers_f):
             if header_i == header_c:
                 head_idx[header_i] = i
                 break
-
+    
     return head_idx
 
 def get_range(chr, i_handle):
@@ -176,15 +116,51 @@ def get_range(chr, i_handle):
             if line.startswith(chr):
                 if i == 0:
                     start = int(line.split("\t")[1])
-                    i =+ 1
+                    i += 1
 
                 else:
                     stop = int(line.split("\t")[1])
+
     return start, stop
 
-def record_extract(c_record, i_record):
-    c_record[0\]
-    return entry
+def record_extract(i_record, c_record, head_idx):
+    # Init vars
+    c_record = [entry for i, entry in enumerate(c_record) if i in head_idx]
+    sampleSize = 0
+    isIndel = 0
+
+    # Extract
+    varID = f"{i_record[0]}:{i_record[1]}:{i_record[3]}_{i_record[4]}" 
+    
+    for i, (entry_i, entry_c) in enumerate(zip(i_record, c_record)):
+        match i:
+            case 0 | 1 | 2 | 5 | 6 | 7:
+                continue
+
+            case 3 | 4:
+                if len(entry_i) > 1:
+                    isIndel = 1
+            
+            case 8:
+                val_dict_i = {}
+                val_dict_c = {}
+
+                for ind_i, ind_c in zip(entry_i.split(":"), entry_c.split(":")):
+                    val_dict_i[ind_i] = "./."
+                    val_dict_c[ind_c] = "./."
+
+            case other:
+                if entry_i == "./.":
+                    entry_i = "./." + (len(val_dict_c) -1) * ":./."
+                for key_i, key_c, val_i, val_c in zip(val_dict_i, val_dict_c, entry_i.split(":"), entry_c.split(":")):
+                    val_dict_i[key_i] = val_i
+                    val_dict_c[key_c] = val_c
+
+                if val_dict_i["GT"] != "./." and val_dict_c["GT"] != "./.":
+                    vals = val_dict_i["GT"].split("/")
+                    sampleSize += (int(vals[0]) +  int(vals[1]))
+        
+    return f"{varID}\t{sampleSize}\t{isIndel}\n"
 
 def write_output(i_df, c_df):
 

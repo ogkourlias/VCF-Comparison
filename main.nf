@@ -68,16 +68,17 @@ process chrComp {
   path compare_headers
 
   output:
-  path "${chr_txt.simpleName}_1.csv", emit: input_csv
-  path "${chr_txt.simpleName}_2.csv", emit: comp_csv
+  path "${chr_txt.simpleName}.tsv", emit: output_tsv
 
   script:
   """
-  vcf_parse.py -f ${vcf_input} -c ${vcf_comp} -ih ${input_headers} -ch ${compare_headers} -chr ${chr_txt.simpleName}
+  vcf_compare.py -f ${vcf_input} -c ${vcf_comp} -ih ${input_headers} \
+  -ch ${compare_headers} -chr ${chr_txt.simpleName} -o ${chr_txt.simpleName}.tsv
   """
 }
 
-process combineCsv {
+process combineTsv {
+  publishDir "${params.outDir}", mode: 'copy'
   containerOptions '--bind /groups/'
   errorStrategy 'retry'
   time '6h'
@@ -86,49 +87,25 @@ process combineCsv {
   maxRetries 0
 
   input:
-  path csv_files
+  path tsv_files
 
   output:
-  path "input.csv", emit: csv_input
-  path "comp.csv", emit: csv_comp
+  path "compMerged.tsv", emit: tsv_merged
 
   script:
   """
-  cat *_1.csv | head -n 1  > input.csv
-  cat *_1.csv | sed '/^CHROM/d'  >> input.csv
-  cat *_2.csv | head -n 1  > comp.csv
-  cat *_2.csv | sed '/^CHROM/d'  >> comp.csv
+  cat *.tsv | head -n 1  > compMerged.tsv
+  cat *.tsv | sed '/^varID/d'  >> compMerged.tsv
   """
 }
-
-process exploreCsv {
-  containerOptions '--bind /groups/'
-  errorStrategy 'retry'
-  time '6h'
-  memory '16 GB'
-  cpus 1
-  maxRetries 0
-
-  input:
-  path csv_input
-  path csv_comp
-
-  script:
-  """
-  compare.py -i ${csv_input} -c ${csv_comp}
-  """
-}
-
-
 
 workflow {
   getHeaders(params.vcf_input, params.vcf_input_tbi, params.vcf_comp, params.vcf_comp_tbi)
   chrs = getChrs(params.vcf_input, params.vcf_input_tbi).flatten()
 
-  csv_files = chrComp(chrs, params.vcf_input, params.vcf_input_tbi, params.vcf_comp, 
+  tsv_files = chrComp(chrs, params.vcf_input, params.vcf_input_tbi, params.vcf_comp, 
     params.vcf_comp_tbi ,getHeaders.output.input_headers, getHeaders.output.compare_headers).collect()
   
-  combineCsv(csv_files)
-
+  combineTsv(tsv_files)
   
   }

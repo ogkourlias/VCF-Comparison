@@ -1,0 +1,1 @@
+nextflow -log /groups/umcg-biogen/tmp01/umcg-ogkourlias/vcf_comparsion/logs/.nextflow.log run main.nf -with-singularity 
