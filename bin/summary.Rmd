@@ -1,0 +1,44 @@
+---
+title: "chrSummary"
+author: "Orfeas Gkourlias"
+date: "20/12/2023"
+output: pdf_document
+---
+
+```{r setup, results='hide', message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("ggplot2")
+library("stringr")
+```
+
+```{r}
+read_tsv <- function(file_name) {
+  df <- read.csv(file_name, sep = "\t", header = TRUE)
+  return(df)
+}
+
+get_ratios <- function(list_entry) {
+  chr <- str_match(list_entry[[1]][1], ".*chr[0-9]{1,2}")
+  df <- data.frame(chr=chr, ratio = list_entry[[11]])
+  return(df)
+}
+
+```
+
+```{r}
+file_names <- list.files("tsv/",pattern = "*.tsv", full.names = TRUE)
+df_list <- lapply(file_names, read_tsv)
+```
+
+```{r}
+ratios <- lapply(df_list, get_ratios)
+ratios_df <- data.frame(chr=character(), ratio=numeric())
+for (ratio in ratios){
+  ratios_df <- rbind(ratio, ratios_df)
+  print(nrow(ratios_df))
+}
+
+ggplot(ratios_df, aes(x=chr, y=ratio, fill=chr)) +  # This is the plot function
+  geom_boxplot() 
+```
+
