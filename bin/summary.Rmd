@@ -28,17 +28,106 @@ get_ratios <- function(list_entry) {
 ```{r}
 file_names <- list.files("tsv/",pattern = "*.tsv", full.names = TRUE)
 df_list <- lapply(file_names, read_tsv)
+main_df <- do.call(rbind,lapply(file_names,read.csv, sep = "\t", header = TRUE))
+main_df$chr <- mapply(str_match, main_df$var_id, pattern = ".*chr[0-9]{1,2}")
 ```
 
 ```{r}
-ratios <- lapply(df_list, get_ratios)
-ratios_df <- data.frame(chr=character(), ratio=numeric())
-for (ratio in ratios){
-  ratios_df <- rbind(ratio, ratios_df)
-  print(nrow(ratios_df))
-}
-
-ggplot(ratios_df, aes(x=chr, y=ratio, fill=chr)) +  # This is the plot function
+ratio_mean = mean(main_df$match_ratio, na.rm = TRUE)
+boxplots <- ggplot(main_df, aes(x=chr, y=match_ratio, fill=chr)) +
+  xlab("") + ylab("GT Overlap\n") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
   geom_boxplot() 
+boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+                color = "blue", size=1) + ggtitle("GT Overlap between 1,079,268 Variants from 147 samples (Before VCF filter).\n")
+ggsave(
+  "overlap1.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
 ```
+
+```{r}
+ratios_c <- seq(0.01, 1, by=0.01)
+coverage <- sapply(ratios_c, function(x) nrow(main_df[main_df$match_ratio >= x,]) / nrow(main_df))
+```
+
+```{r}
+plot(y = coverage, x = ratios_c, xlab = "Overlap Ratio", ylab = "Coverage Percentage")
+```
+```{r}
+main_df$nrhoma_diff = main_df$nrhoma_i - main_df$nrhoma_r
+main_df$nrhets_diff = main_df$nrhets_i - main_df$nrhets_r
+main_df$nrhomb_diff = main_df$nrhomb_i - main_df$nrhomb_r
+```
+
+```{r}
+boxplots <- ggplot(main_df, aes(x=chr, y=nrhoma_diff, fill=chr)) +
+  xlab("") + ylab("GT Overlap\n") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  geom_boxplot() 
+boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+                color = "blue", size=1, outlier.shape = NA) + ggtitle("nhoma_diff.\n") +
+            scale_y_log10()
+ggsave(
+  "nhoma_diff.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+boxplots <- ggplot(main_df, aes(x=chr, y=nrhets_diff, fill=chr)) +
+  xlab("") + ylab("GT Overlap\n") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  geom_boxplot() 
+boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+                color = "blue", size=1) + ggtitle("nrhets_diff\n")
+ggsave(
+  "nrhets_diff.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+boxplots <- ggplot(main_df, aes(x=chr, y=nrhomb_diff, fill=chr)) +
+  xlab("") + ylab("GT Overlap\n") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  geom_boxplot() 
+boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+                color = "blue", size=1) + ggtitle("nrhomb_diff\n")
+ggsave(
+  "nrhomb_diff.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+```
+
+```{r}
+p_scor <- cor(main_df$match_ratio, main_df$p_corr, use = "complete.obs")
+s_cor <- cor(main_df$match_ratio, main_df$s_corr, use = "complete.obs")
+```
+
+```{r}
+# Hexbin chart with default option
+ggplot(main_df, aes(x=p_corr, y=match_ratio) ) +
+  geom_hex() +
+  theme_bw()
+ 
+# Bin size control + color palette
+ggplot(main_df, aes(x=p_corr, y=match_ratio) ) +
+  geom_hex(bins = 100) +
+  scale_fill_continuous(type = "viridis") +
+  theme_bw()
+```
+
 
