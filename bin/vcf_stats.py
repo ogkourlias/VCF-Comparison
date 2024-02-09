@@ -21,6 +21,121 @@ from enum import Enum
 import numpy as np
 from scipy.stats import spearmanr, pearsonr
 
+# CLASSES
+class Vcfstat:
+    """Class to handle VCF file and retrieve variant & dosgae statistics."""
+    def __init__(self, input_handle, output_handle):
+        self.input_handle = input_handle
+        self.output_handle = output_handle
+        
+    def walk(self):
+        """Walk through the VCF file and retrieve the variants."""
+        with gzip.open(self.input_handle, "rt") as vcf_f, gzip.open(self.output_handle) as tsv_f:
+            for line in vcf_f:
+                ...
+
+    def record_extract(self, variant):
+    """Extracts the relevant intersection information from two tabix records.
+
+    Args:
+        i_record (list): list containing record entries for input file.
+        head_idx (dict): header indexes
+
+    Returns:
+        string: string to be written to output file.
+    """
+    # Get a column value for each row if header/column index is present in both files.
+
+    # sample_size and indel variables.
+    sample_size = is_indel = 0
+    nr_aa = nr_ab = nr_bb = 0
+    matching = missing_i = gt_total = 0
+    # Genotype lists for use in pearson corr.
+    gt_list_i = []
+
+    # Construct identifier string for the record/row.
+    var_id = f"{variant[0]}:{variant[1]}:{variant[3]}_{variant[4]}"
+
+    # Selection is same length because of column index selection.
+    # Zip to iterate over both record values and track index.
+    for i, entry_i in enumerate(variant):
+        match i:  # Match the index value.
+            case 0 | 1 | 2 | 5 | 6 | 7:  # Values on these indexes are not relevant.
+                continue
+            
+            case 3 | 4:  # Check whether ref or alt contains an indel.
+                if len(entry_i) > 1:
+                    is_indel = 1
+
+            case 8:  # Initialse the format column indicators/headers.
+                val_dict_i = {}
+
+                # Store format indication/header into a dictionary with empty values.
+                for ind_i in entry_i.split(":"):
+                    val_dict_i[ind_i] = "./."
+
+            case other:  # Sample rows.
+                gt_total += 1
+                # Assign values in format order.
+                for key_i, val_i in zip(
+                    val_dict_i, entry_i.split(":")
+                ):
+                    val_dict_i[key_i] = val_i
+
+                # Save genotypes in seperate var.
+                gt_i = val_dict_i["GT"]
+                ad_i = val_dict_i["AD"]
+                gq_i = val_dict_i["GQ"]
+
+                if "." in gt_i:
+                    missing_i += 1
+
+                # Split and save genotype numbers for sum.
+                # Example: "1/0" becomes list: [1,0]
+                vals_i = gt_i.replace("|", "/").split("/")
+
+                # Check whether genotypes are the same between files.
+                # Also check whether they are not missing genotypes.
+                if vals_i[0] != ".":
+                    sample_size += 1
+                    gt_i = int(vals_i[0]) + int(vals_i[1])
+                    gt_list_i.append(gt_i)
+
+                    match (gt_i):
+                        case 0:
+                            nrhoma_i += 1
+                        case 1:
+                            nrhets_i += 1
+                        case 2:
+                            nrhomb_i += 1
+                    
+
+    maf_i, maf_type_i = calc_maf(nrhoma_i, nrhets_i, nrhomb_i)
+
+    # Get HWE
+    hwe_i = calc_hwe(nrhoma_i, nrhets_i, nrhomb_i)
+
+    # Return a constructed row string for immediate output writing.
+    return (
+        f"{var_id}\t{is_indel}\t{sample_size}\t"
+        f"{nrhoma_i}\t{nrhets_i}\t{nrhomb_i}\t"
+        f"nan\tnan\tnan\t"
+        f"{matching}\tnan\t"
+        f"{maf_i}\tnan\t"
+        f"{hwe_i}\tnan\t"
+        f"nan\tnan\t"
+        f"{missing_i}\tnan\t{gt_total}\t"
+        f"{maf_type_i}\tnan\t"
+        f"nan\t"
+        f"{gq_i}\tnan\t"
+        f"0\n"
+    )
+
+    def calc_maf(self, nrhoma_i, nrhets_i, nrhomb_i):
+
+
+                    
+
 # FUNCTIONS
 def arg_parse():
 
@@ -47,22 +162,6 @@ def arg_parse():
     parser.add_argument("-non", "--non_output", type=str)
     return parser.parse_args()
 
-
-class Allele(Enum):
-    ALT = 1
-    REF = 2
-
-
-def open_tbi(input_file):
-
-    """
-    Tabix file opener function.
-    :input_file: Input VCF file.
-    :return: Opened tabix file.
-    """
-    return tabix.open(input_file)
-
-
 def compare(chr, start, stop, recs_i, r_handle, headers, chunksize):
 
     """
@@ -78,7 +177,6 @@ def compare(chr, start, stop, recs_i, r_handle, headers, chunksize):
     turn: Pandas dataframes containing records with intersectioned positions.
     """
     # Open and query tabix files.
-    comp_r = open_tbi(r_handle)
     i_records = recs_i
     results = []
 

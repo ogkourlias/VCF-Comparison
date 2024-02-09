@@ -48,7 +48,7 @@ RUN apt-get update -y \
 # Non-apt Tools
 
 # Python Packages
-RUN pip install pytabix pandas argparse numpy
+RUN pip install pytabix pandas argparse numpy scipy
     
 # HTSlib 1.18 Install
 RUN cd /tmp/init \
