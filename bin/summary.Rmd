@@ -12,9 +12,9 @@ library("stringr")
 library(scales)
 library(dplyr)
 library(reshape2)
-# library(hrbrthemes)
 ```
 
+Functions.
 ```{r}
 read_tsv <- function(file_name) {
   df <- read.csv(file_name, sep = "\t", header = TRUE)
@@ -33,19 +33,56 @@ most_repeated_character <- function(x) {
 }
 ```
 
-```{r}
-file_names_raw <- list.files("tsv_raw/",pattern = "*.tsv", full.names = TRUE)
-main_df <- do.call(rbind,lapply(file_names_raw,read.csv, sep = "\t", header = TRUE))
-main_df$chr <- mapply(str_match, main_df$var_id, pattern = ".*chr[0-9]{1,2}")
 
-file_names_filter_1 <- list.files("tsv_cr05gq10dp5replace/",pattern = "*.tsv", full.names = TRUE)
-filter_1_df <- do.call(rbind,lapply(file_names_filter_1,read.csv, sep = "\t", header = TRUE))
-filter_1_df$chr <- mapply(str_match, filter_1_df$var_id, pattern = ".*chr[0-9]{1,2}")
+```{r}
+file_names_raw_comp <- list.files("tsv/tsv_raw/comp/",pattern = "*.tsv", full.names = TRUE)
+file_names_raw_all <- list.files("tsv/tsv_raw/all/",pattern = "*.tsv", full.names = TRUE)
+file_names_filter_comp <-list.files("tsv/tsv_cr05gq10dp5replace/comp/",pattern = "*.tsv", full.names = TRUE)
+file_names_filter_all <- list.files("tsv/tsv_cr05gq10dp5replace/all/",pattern = "*.tsv", full.names = TRUE)
+
+raw_comp_df <- do.call(rbind,lapply(file_names_raw_comp, read.csv, sep = "\t", header = TRUE))
+raw_comp_df$chr <- mapply(str_match, raw_comp_df$var_id, pattern = ".*chr[0-9]{1,2}")
+
+raw_all_df <- do.call(rbind,lapply(file_names_raw_all, read.csv, sep = "\t", header = TRUE))
+raw_all_df$chr <- mapply(str_match, raw_all_df$var_id, pattern = ".*chr[0-9]{1,2}")
+
+filter_comp_df <- do.call(rbind,lapply(file_names_filter_comp, read.csv, sep = "\t", header = TRUE))
+filter_comp_df$chr <- mapply(str_match, filter_comp_df$var_id, pattern = ".*chr[0-9]{1,2}")
+
+filter_all_df <- do.call(rbind,lapply(file_names_filter_all, read.csv, sep = "\t", header = TRUE))
+filter_all_df$chr <- mapply(str_match, filter_all_df$var_id, pattern = ".*chr[0-9]{1,2}")
+
+# Temporary fix for bug
+raw_all_df$nr_bb <- raw_all_df$nr_ab
+raw_all_df$nr_ab <- raw_all_df$nr_aa
+raw_all_df$nr_aa <- raw_all_df$sample_size
+raw_all_df$sample_size <- raw_all_df$is_indel
+raw_all_df$is_indel <- raw_all_df$var_id
+raw_all_df$var_id <- rownames(raw_all_df)
+raw_all_df$chr <- mapply(str_match, raw_all_df$var_id, pattern = ".*chr[0-9]{1,2}")
+rownames(raw_all_df) <- c(1:nrow(raw_all_df))
+# Temporary fix for bug
+# Temporary fix for bug
+filter_all_df$nr_bb <- filter_all_df$nr_ab
+filter_all_df$nr_ab <- filter_all_df$nr_aa
+filter_all_df$nr_aa <- filter_all_df$sample_size
+filter_all_df$sample_size <- filter_all_df$is_indel
+filter_all_df$is_indel <- filter_all_df$var_id
+filter_all_df$var_id <- rownames(filter_all_df)
+filter_all_df$chr <- mapply(str_match, filter_all_df$var_id, pattern = ".*chr[0-9]{1,2}")
+rownames(filter_all_df) <- c(1:nrow(filter_all_df))
+
+filter_all_df$call_rate <- (1 - filter_all_df$missing / filter_all_df$gt_total)
+raw_all_df$call_rate <- (1 - raw_all_df$missing / raw_all_df$gt_total)
 ```
 
 ```{r}
-ratio_mean = mean(main_df$match_ratio, na.rm = TRUE)
-boxplots <- ggplot(main_df, aes(x=chr, y=match_ratio, fill=chr)) +
+```
+
+
+```{r}
+ratio_mean = mean(raw_comp_df$match_ratio, na.rm = TRUE)
+boxplots <- ggplot(raw_comp_df, aes(x=chr, y=match_ratio, fill=chr)) +
   xlab("") + ylab("GT Overlap\n") +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
   geom_boxplot() 
@@ -63,7 +100,7 @@ ggsave(
   
 ```{r}
 ratios_c <- seq(0.01, 1, by=0.01)
-coverage <- sapply(ratios_c, function(x) nrow(main_df[main_df$match_ratio >= x,]) / nrow(main_df))
+coverage <- sapply(ratios_c, function(x) nrow(raw_comp_df[raw_comp_df$match_ratio >= x,]) / nrow(raw_comp_df))
 ```
 
 ```{r}
@@ -71,13 +108,13 @@ plot(y = coverage, x = ratios_c, xlab = "Overlap Ratio", ylab = "Coverage Percen
 ```
 
 ```{r}
-#main_df$nrhoma_diff = main_df$nrhoma_i - main_df$nrhoma_r
-#main_df$nrhets_diff = main_df$nrhets_i - main_df$nrhets_r
-#main_df$nrhomb_diff = main_df$nrhomb_i - main_df$nrhomb_r
+#raw_comp_df$nrhoma_diff = raw_comp_df$nrhoma_i - raw_comp_df$nrhoma_r
+#raw_comp_df$nrhets_diff = raw_comp_df$nrhets_i - raw_comp_df$nrhets_r
+#raw_comp_df$nrhomb_diff = raw_comp_df$nrhomb_i - raw_comp_df$nrhomb_r
 ```
 
 ```{r}
-# boxplots <- ggplot(main_df, aes(x=chr, y=nrhoma_diff, fill=chr)) +
+# boxplots <- ggplot(raw_comp_df, aes(x=chr, y=nrhoma_diff, fill=chr)) +
 #   xlab("") + ylab("GT Overlap\n") +
 #   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
 #   geom_boxplot() 
@@ -93,7 +130,7 @@ plot(y = coverage, x = ratios_c, xlab = "Overlap Ratio", ylab = "Coverage Percen
 #   dpi = 300
 # )
 # 
-# boxplots <- ggplot(main_df, aes(x=chr, y=nrhets_diff, fill=chr)) +
+# boxplots <- ggplot(raw_comp_df, aes(x=chr, y=nrhets_diff, fill=chr)) +
 #   xlab("") + ylab("GT Overlap\n") +
 #   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
 #   geom_boxplot() 
@@ -108,7 +145,7 @@ plot(y = coverage, x = ratios_c, xlab = "Overlap Ratio", ylab = "Coverage Percen
 #   dpi = 300
 # )
 # 
-# boxplots <- ggplot(main_df, aes(x=chr, y=nrhomb_diff, fill=chr)) +
+# boxplots <- ggplot(raw_comp_df, aes(x=chr, y=nrhomb_diff, fill=chr)) +
 #   xlab("") + ylab("GT Overlap\n") +
 #   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
 #   geom_boxplot() 
@@ -125,23 +162,23 @@ plot(y = coverage, x = ratios_c, xlab = "Overlap Ratio", ylab = "Coverage Percen
 ```
 
 ```{r}
-# p_scor <- cor(main_df$match_ratio, main_df$p_corr, use = "complete.obs")
-# s_cor <- cor(main_df$match_ratio, main_df$s_corr, use = "complete.obs")
+# p_scor <- cor(raw_comp_df$match_ratio, raw_comp_df$p_corr, use = "complete.obs")
+# s_cor <- cor(raw_comp_df$match_ratio, raw_comp_df$s_corr, use = "complete.obs")
 # p_scor
 # s_cor
 ```
 
 ```{r}
-main_df$alt_freq_i <- ifelse(main_df$maf_type_i == "ALT", main_df$maf_i, 1 - main_df$maf_i)
-main_df$alt_freq_r <- ifelse(main_df$maf_type_r == "ALT", main_df$maf_r, 1 - main_df$maf_r)
-main_df$ref_freq_i <- 1 - main_df$alt_freq_i
-main_df$ref_freq_r <- 1 - main_df$alt_freq_r 
+raw_comp_df$alt_freq_i <- ifelse(raw_comp_df$maf_type_i == "ALT", raw_comp_df$maf_i, 1 - raw_comp_df$maf_i)
+raw_comp_df$alt_freq_r <- ifelse(raw_comp_df$maf_type_r == "ALT", raw_comp_df$maf_r, 1 - raw_comp_df$maf_r)
+raw_comp_df$ref_freq_i <- 1 - raw_comp_df$alt_freq_i
+raw_comp_df$ref_freq_r <- 1 - raw_comp_df$alt_freq_r 
 
-cor <- cor(main_df$alt_freq_i, main_df$alt_freq_r)
+cor <- cor(raw_comp_df$alt_freq_i, raw_comp_df$alt_freq_r)
 cor
 
 # basic scatterplot
-ggplot(main_df, aes(x=alt_freq_i, y=alt_freq_r)) +
+ggplot(raw_comp_df, aes(x=alt_freq_i, y=alt_freq_r)) +
     geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
                                       title = "No filter, No pass check, N = (1,162,944). ρ = 0.75")
 
@@ -154,26 +191,26 @@ ggsave(
   dpi = 300
 )
 
-cor(main_df$alt_freq_i, main_df$alt_freq_r)
+cor(raw_comp_df$alt_freq_i, raw_comp_df$alt_freq_r)
 
 #for pass
-main_df_pass = main_df[main_df$pass_r == 1,]
-cor <- cor(main_df_pass$alt_freq_i, main_df_pass$alt_freq_r)
+raw_comp_df_pass = raw_comp_df[raw_comp_df$pass_r == 1,]
+cor <- cor(raw_comp_df_pass$alt_freq_i, raw_comp_df_pass$alt_freq_r)
 cor
 
 # basic scatterplot
-ggplot(main_df_pass, aes(x=alt_freq_i, y=alt_freq_r)) +
+ggplot(raw_comp_df_pass, aes(x=alt_freq_i, y=alt_freq_r)) +
     geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
                                     title = "No filter,  Pass check, N = (1,027,414). ρ = 0.77")
 
-cor(main_df_pass$alt_freq_i, main_df_pass$alt_freq_r)
+cor(raw_comp_df_pass$alt_freq_i, raw_comp_df_pass$alt_freq_r)
 ```
 
 ```{r}
-main_df$call_rate_i <- (1 - main_df$missing_i / main_df$gt_total)
-main_df$call_rate_r <- (1 - main_df$missing_r / main_df$gt_total)
+raw_comp_df$call_rate_i <- (1 - raw_comp_df$missing_i / raw_comp_df$gt_total)
+raw_comp_df$call_rate_r <- (1 - raw_comp_df$missing_r / raw_comp_df$gt_total)
 
-cr50df <- main_df[(main_df$call_rate_i >= 0.5) & (main_df$call_rate_i >= 0.5),]
+cr50df <- raw_comp_df[(raw_comp_df$call_rate_i >= 0.5) & (raw_comp_df$call_rate_i >= 0.5),]
 cor <- cor(cr50df$alt_freq_i, cr50df$alt_freq_r)
 cor
 
@@ -213,16 +250,16 @@ cor(cr50df_pass$alt_freq_i, cr50df_pass$alt_freq_r)
 ```
 
 ```{r}
-filter_1_df$alt_freq_i <- ifelse(filter_1_df$maf_type_i == "ALT", filter_1_df$maf_i, 1 - filter_1_df$maf_i)
-filter_1_df$alt_freq_r <- ifelse(filter_1_df$maf_type_r == "ALT", filter_1_df$maf_r, 1 - filter_1_df$maf_r)
-filter_1_df$ref_freq_i <- 1 - filter_1_df$alt_freq_i
-filter_1_df$ref_freq_r <- 1 - filter_1_df$alt_freq_r 
+filter_comp_df$alt_freq_i <- ifelse(filter_comp_df$maf_type_i == "ALT", filter_comp_df$maf_i, 1 - filter_comp_df$maf_i)
+filter_comp_df$alt_freq_r <- ifelse(filter_comp_df$maf_type_r == "ALT", filter_comp_df$maf_r, 1 - filter_comp_df$maf_r)
+filter_comp_df$ref_freq_i <- 1 - filter_comp_df$alt_freq_i
+filter_comp_df$ref_freq_r <- 1 - filter_comp_df$alt_freq_r 
 
-cor <- cor(filter_1_df$alt_freq_i, filter_1_df$alt_freq_r)
+cor <- cor(filter_comp_df$alt_freq_i, filter_comp_df$alt_freq_r)
 cor
 
 # basic scatterplot
-ggplot(filter_1_df, aes(x=alt_freq_i, y=alt_freq_r)) +
+ggplot(filter_comp_df, aes(x=alt_freq_i, y=alt_freq_r)) +
     geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (GTEx)",
                                     title = "Custom VCF Filter, No Pass Check, N = (89,349). ρ = 0.981")
 
@@ -237,12 +274,13 @@ ggsave(
 
 
 #for pass
-filter_1_df_pass = filter_1_df[filter_1_df$pass_r == 1,]
-cor <- cor(filter_1_df_pass$alt_freq_i, filter_1_df_pass$alt_freq_r)
+filter_comp_df_pass = filter_comp_df[filter_comp_df$pass_r == 1,]
+filter_comp_df_pass$call_rate_i = (1 - filter_comp_df_pass$missing_i / filter_comp_df_pass$gt_total)
+cor <- cor(filter_comp_df_pass$alt_freq_i, filter_comp_df_pass$alt_freq_r)
 cor
 
 # basic scatterplot
-ggplot(filter_1_df_pass, aes(x=alt_freq_i, y=alt_freq_r)) +
+ggplot(filter_comp_df_pass, aes(x=alt_freq_i, y=alt_freq_r)) +
     geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
                                     title = "Custom VCF Filter, Pass check, N = (83,280). ρ = 0.990")
 
@@ -257,21 +295,21 @@ ggsave(
 )
 
 
-cor(filter_1_df_pass$alt_freq_i, filter_1_df_pass$alt_freq_r)
+cor(filter_comp_df_pass$alt_freq_i, filter_comp_df_pass$alt_freq_r)
 ```
 
 ```{r}
-tbl_main_df_pass = table(main_df_pass$var_status)
-tbl_filter_1_df_pass = table(filter_1_df_pass$var_status)
+tbl_raw_comp_df_pass = table(raw_comp_df_pass$var_status)
+tbl_filter_comp_df_pass = table(filter_comp_df_pass$var_status)
 
-names(tbl_main_df_pass) = c("Exonic", "Intronic", "Non-Gene")
-names(tbl_filter_1_df_pass) = c("Exonic", "Intronic", "Non-Gene")
+names(tbl_raw_comp_df_pass) = c("Exonic", "Intronic", "Non-Gene")
+names(tbl_filter_comp_df_pass) = c("Exonic", "Intronic", "Non-Gene")
 
-region_freq_main = as.data.frame(tbl_main_df_pass)
-region_freq_filt = as.data.frame(tbl_filter_1_df_pass)
+region_freq_main = as.data.frame(tbl_raw_comp_df_pass)
+region_freq_filt = as.data.frame(tbl_filter_comp_df_pass)
 
-region_freq_main$ratio_main = region_freq_main$Freq / nrow(main_df_pass)
-region_freq_filt$ratio_filt = region_freq_filt$Freq / nrow(filter_1_df_pass)
+region_freq_main$ratio_main = region_freq_main$Freq / nrow(raw_comp_df_pass)
+region_freq_filt$ratio_filt = region_freq_filt$Freq / nrow(filter_comp_df_pass)
 
 region_freq = merge(region_freq_main, region_freq_filt,by="Var1")
 names(region_freq)[1] = "region"
@@ -295,8 +333,8 @@ ggsave(
 
 ```
 ```{r}
-ratio_mean <- mean(filter_1_df_pass$match_ratio, na.rm = TRUE)
-boxplots <- ggplot(filter_1_df_pass, aes(x=chr, y=match_ratio, fill=chr)) +
+ratio_mean <- mean(filter_comp_df_pass$match_ratio, na.rm = TRUE)
+boxplots <- ggplot(filter_comp_df_pass, aes(x=chr, y=match_ratio, fill=chr)) +
   xlab("") + ylab("GT Overlap\n") +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
   geom_boxplot() 
@@ -304,9 +342,10 @@ boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid",
                 color = "blue", linewidth=1) + ggtitle("GT Overlap between 83,280 Variants from 147 samples (VCF filter).\n")
 boxplots
 ```
+
 ```{r}
-gene_types_pre <- stringr::str_split_fixed(main_df$gene_types, ":", n=Inf)
-gene_types_post <- stringr::str_split_fixed(filter_1_df_pass$gene_types, ":", n=Inf)
+gene_types_pre <- stringr::str_split_fixed(raw_comp_df$gene_types, ":", n=Inf)
+gene_types_post <- stringr::str_split_fixed(filter_comp_df_pass$gene_types, ":", n=Inf)
 
 gene_df_pre <- as.data.frame(table(gene_types_pre))
 gene_df_post <- as.data.frame(table(gene_types_post))
@@ -329,55 +368,73 @@ ggplot(dfm,aes(x = gene_type,y = value)) +
 
 ```
 ```{r}
-filtered <- data.frame(var_id = filter_1_df_pass[,1], filtered = 1)
-merged_df <- left_join(main_df, filtered, by = "var_id")
+filtered <- data.frame(var_id = filter_comp_df_pass[,1], filtered = 1)
+merged_df <- left_join(raw_comp_df, filtered, by = "var_id")
 merged_df[is.na(merged_df$filtered),]$filtered = 0
 
-#filter_1_df_pass$call_rate_i <- (1 - filter_1_df_pass$missing_i / filter_1_df_pass$gt_total)
-#filter_1_df_pass$call_rate_r <- (1 - filter_1_df_pass$missing_r / filter_1_df_pass$gt_total)
+#filter_comp_df_pass$call_rate_i <- (1 - filter_comp_df_pass$missing_i / filter_comp_df_pass$gt_total)
+#filter_comp_df_pass$call_rate_r <- (1 - filter_comp_df_pass$missing_r / filter_comp_df_pass$gt_total)
 
-#ggplot(main_df, aes(alt_freq_i)) + 
+#ggplot(raw_comp_df, aes(alt_freq_i)) + 
 #  geom_density(aes(x = alt_freq_i, y = ..count../sum(..count..)), stat = 'bin', color = 4,  fill = 4,   alpha = 0.25) +
 #  scale_y_continuous(labels = percent_format(accuracy = 1))
 
-#ggplot(filter_1_df_pass, aes(alt_freq_i)) + 
+#ggplot(filter_comp_df_pass, aes(alt_freq_i)) + 
 #  geom_density(aes(x = alt_freq_i, y = ..count../sum(..count..)), stat = 'bin', color = 4,  fill = 4,   alpha = 0.25) +
 #  scale_y_continuous(labels = percent_format(accuracy = 1))
 
-#ggplot(main_df, aes(x = alt_freq_i, colour = var_status)) +
+#ggplot(raw_comp_df, aes(x = alt_freq_i, colour = var_status)) +
 #  scale_y_continuous(labels = percent_format(accuracy = 1))
 
-ggplot(main_df, aes(x = call_rate_i, fill = var_status)) +
-  geom_density(alpha= 0.5) +
-  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 10)) +
-  ggtitle("Density of Call Rates Grouped by Variant Regions (No-Filter)") +
-  scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region") +
-  labs(x="Call Rate", y="Density Percentage") +
-   theme(
-    legend.position = c(.90, .95),
-    legend.justification = c("right", "top"),
-    legend.box.just = "right",
-    legend.margin = margin(6, 6, 6, 6)
-    )
-
-ggplot(filter_1_df_pass, aes(x = call_rate_i, fill = var_status)) +
-  geom_density(alpha= 0.5) +
-  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 10)) +
-  ggtitle("Density of Call Rates Grouped by Variant Regions (Filter)") +
-  scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region") +
-  labs(x="Call Rate", y="Density Percentage") +
-   theme(
-    legend.position = c(.90, .95),
-    legend.justification = c("right", "top"),
-    legend.box.just = "right",
-    legend.margin = margin(6, 6, 6, 6)
-    )
-
-ggplot(main_df, aes(x = alt_freq_i, fill = var_status)) +
+ggplot(raw_comp_df, aes(x = call_rate_i, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Alt Freqs. Grouped by Variant Regions (No-Filter)") +
-  scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region") +
+  ggtitle("Density of Call Rates Grouped by Variant Regions, Overlapping Variants (No-Filter)") +
+  scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region (1,162,944") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/overlap_raw_call_rate.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+ggplot(filter_comp_df_pass, aes(x = call_rate_i, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Call Rates Grouped by Overlapping Variant Regions, Overlapping Variants (Filter)") +
+  scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/overlap_filter_call_rate.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+ggplot(raw_comp_df, aes(x = alt_freq_i, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Alt Freqs. Grouped by Variant Regions, Overlapping Variant (No-Filter)") +
+  scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region (1,162,944") +
   labs(x="Alt Freq", y="Density Percentage") +
    theme(
     legend.position = c(.90, .95),
@@ -386,11 +443,20 @@ ggplot(main_df, aes(x = alt_freq_i, fill = var_status)) +
     legend.margin = margin(6, 6, 6, 6)
     )
 
-ggplot(filter_1_df_pass, aes(x = alt_freq_i, fill = var_status)) +
+ggsave(
+  "figures/overlap_raw_alt_freq.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+ggplot(filter_comp_df_pass, aes(x = alt_freq_i, fill = var_status)) +
   geom_density(alpha= 0.5) +
-  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 10)) +
-  ggtitle("Density of Alt Freqs Grouped by Variant Regions (Filter)") +
-  scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region") +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Alt Freqs Grouped by Variant Regions, Overlapping Variant (Filter)") +
+  scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region (83,280)") +
   labs(x="Alt Freq", y="Density Percentage") +
    theme(
     legend.position = c(.90, .95),
@@ -398,17 +464,100 @@ ggplot(filter_1_df_pass, aes(x = alt_freq_i, fill = var_status)) +
     legend.box.just = "right",
     legend.margin = margin(6, 6, 6, 6)
     )
+
+ggsave(
+  "figures/overlap_filter_alt_freq.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
 
 # Basic histogram
-ggplot(main_df, aes(x=is_indel)) + geom_histogram()
+ggplot(raw_comp_df, aes(x=is_indel)) + geom_histogram()
 # Change the width of bins
-ggplot(main_df, aes(x=is_indel)) + 
+ggplot(raw_comp_df, aes(x=is_indel)) + 
   geom_histogram(binwidth=1)
 # Change colors
-p<-ggplot(main_df, aes(x=is_indel)) + 
+p<-ggplot(raw_comp_df, aes(x=is_indel)) + 
   geom_histogram(color="black", fill="white")
 p
 
 
-ggplot(filter_1_df_pass, aes(x=is_indel)) + geom_histogram()
+ggplot(filter_comp_df_pass, aes(x=is_indel)) + geom_histogram()
+
+ggplot(raw_all_df, aes(x = call_rate, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Call Rates Grouped by Variant Regions, All variants (No Filter)") +
+  scale_fill_discrete(labels=c("Exonic (967,967)", "Intronic (2,239,287)", "Non-Gene (288,562)"), name = "Region. (3,495,816)") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/all_raw_call_rates.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+ggplot(filter_all_df, aes(x = call_rate, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Call Rates Grouped by Variant Regions, All variants (Filter)") +
+  scale_fill_discrete(labels=c("Exonic (86,303)", "Intronic (30,549)", "Non-Gene (2,915)"), name = "Region. (119,767)") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/all_filter_call_rate.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+
+filter_non_overlap_df = subset(filter_all_df, !(filter_all_df$var_id %in% filter_comp_df$var_id))
+raw_non_overlap_df = subset(raw_comp_df, !(raw_all_df$var_id %in% raw_comp_df$var_id))
+
+ggplot(filter_non_overlap_df, aes(x = alt_freq, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Alt. Frequencies Grouped by Variant Regions Non-Overlappping variants (Filter)") +
+  scale_fill_discrete(labels=c("Exonic (17,001)", "Intronic (12,412)", "Non-Gene (1,005)"), name = "Region. (30,418)") +
+  labs(x="Alt. Freq", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/non_overlap_filter_alt_freq.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+
+
+ggplot(filter_comp_df_pass, aes(x=is_indel)) + geom_histogram()
 ```
