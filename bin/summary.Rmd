@@ -9,8 +9,10 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library("ggplot2")
 library("stringr")
+library(scales)
 library(dplyr)
-library(hrbrthemes)
+library(reshape2)
+# library(hrbrthemes)
 ```
 
 ```{r}
@@ -25,12 +27,20 @@ get_ratios <- function(list_entry) {
   return(df)
 }
 
+most_repeated_character <- function(x) {
+  tab <- table(strsplit(x, '')[[1]])
+  names(tab)[tab == max(tab)]
+}
 ```
 
 ```{r}
-file_names <- list.files("tsv/",pattern = "*.tsv", full.names = TRUE)
-main_df <- do.call(rbind,lapply(file_names,read.csv, sep = "\t", header = TRUE))
+file_names_raw <- list.files("tsv_raw/",pattern = "*.tsv", full.names = TRUE)
+main_df <- do.call(rbind,lapply(file_names_raw,read.csv, sep = "\t", header = TRUE))
 main_df$chr <- mapply(str_match, main_df$var_id, pattern = ".*chr[0-9]{1,2}")
+
+file_names_filter_1 <- list.files("tsv_cr05gq10dp5replace/",pattern = "*.tsv", full.names = TRUE)
+filter_1_df <- do.call(rbind,lapply(file_names_filter_1,read.csv, sep = "\t", header = TRUE))
+filter_1_df$chr <- mapply(str_match, filter_1_df$var_id, pattern = ".*chr[0-9]{1,2}")
 ```
 
 ```{r}
@@ -40,7 +50,7 @@ boxplots <- ggplot(main_df, aes(x=chr, y=match_ratio, fill=chr)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
   geom_boxplot() 
 boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
-                color = "blue", size=1) + ggtitle("GT Overlap between 1,079,268 Variants from 147 samples (Before VCF filter).\n")
+                color = "blue", linewidth=1) + ggtitle("GT Overlap between 1,079,268 Variants from 147 samples (Before VCF filter).\n")
 ggsave(
   "figures/overlap1.png",
   plot = last_plot(),
@@ -59,93 +69,104 @@ coverage <- sapply(ratios_c, function(x) nrow(main_df[main_df$match_ratio >= x,]
 ```{r}
 plot(y = coverage, x = ratios_c, xlab = "Overlap Ratio", ylab = "Coverage Percentage")
 ```
+
 ```{r}
-main_df$nrhoma_diff = main_df$nrhoma_i - main_df$nrhoma_r
-main_df$nrhets_diff = main_df$nrhets_i - main_df$nrhets_r
-main_df$nrhomb_diff = main_df$nrhomb_i - main_df$nrhomb_r
+#main_df$nrhoma_diff = main_df$nrhoma_i - main_df$nrhoma_r
+#main_df$nrhets_diff = main_df$nrhets_i - main_df$nrhets_r
+#main_df$nrhomb_diff = main_df$nrhomb_i - main_df$nrhomb_r
 ```
 
 ```{r}
-boxplots <- ggplot(main_df, aes(x=chr, y=nrhoma_diff, fill=chr)) +
-  xlab("") + ylab("GT Overlap\n") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-  geom_boxplot() 
-boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
-                color = "blue", size=1, outlier.shape = NA) + ggtitle("nhoma_diff.\n") +
-            scale_y_log10()
-ggsave(
-  "figures/nhoma_diff.png",
-  plot = last_plot(),
-  scale = 1,
-  width = 12,
-  height = 8,
-  dpi = 300
-)
-
-boxplots <- ggplot(main_df, aes(x=chr, y=nrhets_diff, fill=chr)) +
-  xlab("") + ylab("GT Overlap\n") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-  geom_boxplot() 
-boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
-                color = "blue", size=1) + ggtitle("nrhets_diff\n")
-ggsave(
-  "figures/nrhets_diff.png",
-  plot = last_plot(),
-  scale = 1,
-  width = 12,
-  height = 8,
-  dpi = 300
-)
-
-boxplots <- ggplot(main_df, aes(x=chr, y=nrhomb_diff, fill=chr)) +
-  xlab("") + ylab("GT Overlap\n") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-  geom_boxplot() 
-boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
-                color = "blue", size=1) + ggtitle("nrhomb_diff\n")
-ggsave(
-  "figures/nrhomb_diff.png",
-  plot = last_plot(),
-  scale = 1,
-  width = 12,
-  height = 8,
-  dpi = 300
-)
+# boxplots <- ggplot(main_df, aes(x=chr, y=nrhoma_diff, fill=chr)) +
+#   xlab("") + ylab("GT Overlap\n") +
+#   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+#   geom_boxplot() 
+# boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+#                 color = "blue", size=1, outlier.shape = NA) + ggtitle("nhoma_diff.\n") +
+#             scale_y_log10()
+# ggsave(
+#   "figures/nhoma_diff.png",
+#   plot = last_plot(),
+#   scale = 1,
+#   width = 12,
+#   height = 8,
+#   dpi = 300
+# )
+# 
+# boxplots <- ggplot(main_df, aes(x=chr, y=nrhets_diff, fill=chr)) +
+#   xlab("") + ylab("GT Overlap\n") +
+#   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+#   geom_boxplot() 
+# boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+#                 color = "blue", size=1) + ggtitle("nrhets_diff\n")
+# ggsave(
+#   "figures/nrhets_diff.png",
+#   plot = last_plot(),
+#   scale = 1,
+#   width = 12,
+#   height = 8,
+#   dpi = 300
+# )
+# 
+# boxplots <- ggplot(main_df, aes(x=chr, y=nrhomb_diff, fill=chr)) +
+#   xlab("") + ylab("GT Overlap\n") +
+#   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+#   geom_boxplot() 
+# boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+#                 color = "blue", size=1) + ggtitle("nrhomb_diff\n")
+# ggsave(
+#   "figures/nrhomb_diff.png",
+#   plot = last_plot(),
+#   scale = 1,
+#   width = 12,
+#   height = 8,
+#   dpi = 300
+# )
 ```
 
 ```{r}
-p_scor <- cor(main_df$match_ratio, main_df$p_corr, use = "complete.obs")
-s_cor <- cor(main_df$match_ratio, main_df$s_corr, use = "complete.obs")
+# p_scor <- cor(main_df$match_ratio, main_df$p_corr, use = "complete.obs")
+# s_cor <- cor(main_df$match_ratio, main_df$s_corr, use = "complete.obs")
+# p_scor
+# s_cor
 ```
 
-```{r}
-# Hexbin chart with default option
-#ggplot(main_df, aes(x=p_corr, y=match_ratio) ) +
-  #geom_hex() +
-  #theme_bw()
- 
-# Bin size control + color palette
-#ggplot(main_df, aes(x=p_corr, y=match_ratio) ) +
-  #geom_hex(bins = 100) +
-  #scale_fill_continuous(type = "viridis") +
-  #theme_bw()
-```
 ```{r}
 main_df$alt_freq_i <- ifelse(main_df$maf_type_i == "ALT", main_df$maf_i, 1 - main_df$maf_i)
 main_df$alt_freq_r <- ifelse(main_df$maf_type_r == "ALT", main_df$maf_r, 1 - main_df$maf_r)
 main_df$ref_freq_i <- 1 - main_df$alt_freq_i
 main_df$ref_freq_r <- 1 - main_df$alt_freq_r 
 
+cor <- cor(main_df$alt_freq_i, main_df$alt_freq_r)
+cor
+
 # basic scatterplot
 ggplot(main_df, aes(x=alt_freq_i, y=alt_freq_r)) +
-    geom_point(alpha = 0.05)
+    geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
+                                      title = "No filter, No pass check, N = (1,162,944). ρ = 0.75")
+
+ggsave(
+  "figures/nofilt_no_pass.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 
 cor(main_df$alt_freq_i, main_df$alt_freq_r)
 
-ggplot(main_df, aes(x=ref_freq_i, y=ref_freq_r)) +
-    geom_point(alpha = 0.05)
+#for pass
+main_df_pass = main_df[main_df$pass_r == 1,]
+cor <- cor(main_df_pass$alt_freq_i, main_df_pass$alt_freq_r)
+cor
 
-cor(main_df$ref_freq_i, main_df$ref_freq_r)
+# basic scatterplot
+ggplot(main_df_pass, aes(x=alt_freq_i, y=alt_freq_r)) +
+    geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
+                                    title = "No filter,  Pass check, N = (1,027,414). ρ = 0.77")
+
+cor(main_df_pass$alt_freq_i, main_df_pass$alt_freq_r)
 ```
 
 ```{r}
@@ -153,24 +174,241 @@ main_df$call_rate_i <- (1 - main_df$missing_i / main_df$gt_total)
 main_df$call_rate_r <- (1 - main_df$missing_r / main_df$gt_total)
 
 cr50df <- main_df[(main_df$call_rate_i >= 0.5) & (main_df$call_rate_i >= 0.5),]
+cor <- cor(cr50df$alt_freq_i, cr50df$alt_freq_r)
+cor
 
 # basic scatterplot
 ggplot(cr50df, aes(x=alt_freq_i, y=alt_freq_r)) +
-    geom_point(alpha = 0.05)
+    geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
+                                    title = "Call rate >= 0.5 filter, No pass check, N = (429,012). ρ = 0.953")
+ggsave(
+  "figures/nofilt_cr50_nopass.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 
-cor(cr50df$alt_freq_i, cr50df$alt_freq_r)
+#for pass
+cr50df_pass = cr50df[cr50df$pass_r == 1,]
+cor <- cor(cr50df_pass$alt_freq_i, cr50df_pass$alt_freq_r)
+cor
 
-ggplot(cr50df, aes(x=ref_freq_i, y=ref_freq_r)) +
-    geom_point(alpha = 0.05)
+# basic scatterplot
+ggplot(cr50df_pass, aes(x=alt_freq_i, y=alt_freq_r)) +
+    geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
+                                    title = "Call rate >= 0.5 filter, Pass check, N = (391,449). ρ = 0.967")
 
-cor(cr50df$ref_freq_i, cr50df$ref_freq_r)
+ggsave(
+  "figures/nofilt_50cr_pass.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+cor(cr50df_pass$alt_freq_i, cr50df_pass$alt_freq_r)
 ```
 
 ```{r}
-ggplot(main_df, aes(x=-log10(hwe_i), y=-log10(hwe_r))) +
-    geom_point(alpha = 0.05)
+filter_1_df$alt_freq_i <- ifelse(filter_1_df$maf_type_i == "ALT", filter_1_df$maf_i, 1 - filter_1_df$maf_i)
+filter_1_df$alt_freq_r <- ifelse(filter_1_df$maf_type_r == "ALT", filter_1_df$maf_r, 1 - filter_1_df$maf_r)
+filter_1_df$ref_freq_i <- 1 - filter_1_df$alt_freq_i
+filter_1_df$ref_freq_r <- 1 - filter_1_df$alt_freq_r 
 
-cor(main_df$hwe_i, main_df$hwe_r)
+cor <- cor(filter_1_df$alt_freq_i, filter_1_df$alt_freq_r)
+cor
+
+# basic scatterplot
+ggplot(filter_1_df, aes(x=alt_freq_i, y=alt_freq_r)) +
+    geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (GTEx)",
+                                    title = "Custom VCF Filter, No Pass Check, N = (89,349). ρ = 0.981")
+
+ggsave(
+  "figures/filt_nopass.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+#for pass
+filter_1_df_pass = filter_1_df[filter_1_df$pass_r == 1,]
+cor <- cor(filter_1_df_pass$alt_freq_i, filter_1_df_pass$alt_freq_r)
+cor
+
+# basic scatterplot
+ggplot(filter_1_df_pass, aes(x=alt_freq_i, y=alt_freq_r)) +
+    geom_point(alpha = 0.05) + labs(x = "Alt Allele Freq. (RNA)", y = "Alt Allele Freq. (DNA)",
+                                    title = "Custom VCF Filter, Pass check, N = (83,280). ρ = 0.990")
+
+
+ggsave(
+  "figures/filt_pass.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+cor(filter_1_df_pass$alt_freq_i, filter_1_df_pass$alt_freq_r)
 ```
 
+```{r}
+tbl_main_df_pass = table(main_df_pass$var_status)
+tbl_filter_1_df_pass = table(filter_1_df_pass$var_status)
 
+names(tbl_main_df_pass) = c("Exonic", "Intronic", "Non-Gene")
+names(tbl_filter_1_df_pass) = c("Exonic", "Intronic", "Non-Gene")
+
+region_freq_main = as.data.frame(tbl_main_df_pass)
+region_freq_filt = as.data.frame(tbl_filter_1_df_pass)
+
+region_freq_main$ratio_main = region_freq_main$Freq / nrow(main_df_pass)
+region_freq_filt$ratio_filt = region_freq_filt$Freq / nrow(filter_1_df_pass)
+
+region_freq = merge(region_freq_main, region_freq_filt,by="Var1")
+names(region_freq)[1] = "region"
+dfm <- melt(region_freq[,c('region','ratio_main','ratio_filt')],id.vars = 1)
+
+ggplot(dfm,aes(x = region,y = value)) + 
+    geom_bar(aes(fill = variable),stat = "identity",position = "dodge") + 
+    ggtitle("SNP Region Distribution. Pre-Filter (N=1,027.414) vs. Post-Filter (N=83,280)\n") +
+    ylab("Respective Ratio") + xlab("SNP Region") + labs(fill = "Region") +
+    scale_fill_discrete(labels=c('Pre-Filter', 'Post-Filter'))
+
+
+ggsave(
+  "figures/regions.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+```
+```{r}
+ratio_mean <- mean(filter_1_df_pass$match_ratio, na.rm = TRUE)
+boxplots <- ggplot(filter_1_df_pass, aes(x=chr, y=match_ratio, fill=chr)) +
+  xlab("") + ylab("GT Overlap\n") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  geom_boxplot() 
+boxplots <- boxplots + geom_hline(yintercept = ratio_mean, linetype="solid", 
+                color = "blue", linewidth=1) + ggtitle("GT Overlap between 83,280 Variants from 147 samples (VCF filter).\n")
+boxplots
+```
+```{r}
+gene_types_pre <- stringr::str_split_fixed(main_df$gene_types, ":", n=Inf)
+gene_types_post <- stringr::str_split_fixed(filter_1_df_pass$gene_types, ":", n=Inf)
+
+gene_df_pre <- as.data.frame(table(gene_types_pre))
+gene_df_post <- as.data.frame(table(gene_types_post))
+
+gene_df_pre$Freq <- gene_df_pre$Freq / length(gene_types_pre)
+gene_df_post$Freq <- gene_df_post$Freq / length(gene_types_post)
+
+colnames(gene_df_pre) <- c("gene_type", "freq_pre")
+colnames(gene_df_post) <- c("gene_type", "freq_post")
+
+gene_type_freq = merge(gene_df_pre, gene_df_post,by="gene_type")
+names(gene_type_freq)[1] = "gene_type"
+dfm <- melt(gene_type_freq[,c('gene_type','freq_pre','freq_post')],id.vars = 1)
+
+ggplot(dfm,aes(x = gene_type,y = value)) + 
+    geom_bar(aes(fill = variable),stat = "identity",position = "dodge") + 
+    ggtitle("SNP Region Distribution. Pre-Filter (N=1.027.414) vs. Post-Filter (N=83.280)\n") +
+    ylab("Respective Ratio") + xlab("SNP Region") + labs(fill = "Region") +
+    scale_fill_discrete(labels=c('Pre-Filter', 'Post-Filter'))
+
+```
+```{r}
+filtered <- data.frame(var_id = filter_1_df_pass[,1], filtered = 1)
+merged_df <- left_join(main_df, filtered, by = "var_id")
+merged_df[is.na(merged_df$filtered),]$filtered = 0
+
+#filter_1_df_pass$call_rate_i <- (1 - filter_1_df_pass$missing_i / filter_1_df_pass$gt_total)
+#filter_1_df_pass$call_rate_r <- (1 - filter_1_df_pass$missing_r / filter_1_df_pass$gt_total)
+
+#ggplot(main_df, aes(alt_freq_i)) + 
+#  geom_density(aes(x = alt_freq_i, y = ..count../sum(..count..)), stat = 'bin', color = 4,  fill = 4,   alpha = 0.25) +
+#  scale_y_continuous(labels = percent_format(accuracy = 1))
+
+#ggplot(filter_1_df_pass, aes(alt_freq_i)) + 
+#  geom_density(aes(x = alt_freq_i, y = ..count../sum(..count..)), stat = 'bin', color = 4,  fill = 4,   alpha = 0.25) +
+#  scale_y_continuous(labels = percent_format(accuracy = 1))
+
+#ggplot(main_df, aes(x = alt_freq_i, colour = var_status)) +
+#  scale_y_continuous(labels = percent_format(accuracy = 1))
+
+ggplot(main_df, aes(x = call_rate_i, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 10)) +
+  ggtitle("Density of Call Rates Grouped by Variant Regions (No-Filter)") +
+  scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggplot(filter_1_df_pass, aes(x = call_rate_i, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 10)) +
+  ggtitle("Density of Call Rates Grouped by Variant Regions (Filter)") +
+  scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggplot(main_df, aes(x = alt_freq_i, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Alt Freqs. Grouped by Variant Regions (No-Filter)") +
+  scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region") +
+  labs(x="Alt Freq", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggplot(filter_1_df_pass, aes(x = alt_freq_i, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 10)) +
+  ggtitle("Density of Alt Freqs Grouped by Variant Regions (Filter)") +
+  scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region") +
+  labs(x="Alt Freq", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+# Basic histogram
+ggplot(main_df, aes(x=is_indel)) + geom_histogram()
+# Change the width of bins
+ggplot(main_df, aes(x=is_indel)) + 
+  geom_histogram(binwidth=1)
+# Change colors
+p<-ggplot(main_df, aes(x=is_indel)) + 
+  geom_histogram(color="black", fill="white")
+p
+
+
+ggplot(filter_1_df_pass, aes(x=is_indel)) + geom_histogram()
+```
