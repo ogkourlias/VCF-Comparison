@@ -372,6 +372,10 @@ filtered <- data.frame(var_id = filter_comp_df_pass[,1], filtered = 1)
 merged_df <- left_join(raw_comp_df, filtered, by = "var_id")
 merged_df[is.na(merged_df$filtered),]$filtered = 0
 
+
+filter_non_overlap_df = subset(filter_all_df, !(filter_all_df$var_id %in% filter_comp_df$var_id))
+raw_non_overlap_df = subset(raw_all_df, !(raw_all_df$var_id %in% raw_comp_df$var_id))
+
 #filter_comp_df_pass$call_rate_i <- (1 - filter_comp_df_pass$missing_i / filter_comp_df_pass$gt_total)
 #filter_comp_df_pass$call_rate_r <- (1 - filter_comp_df_pass$missing_r / filter_comp_df_pass$gt_total)
 
@@ -389,7 +393,7 @@ merged_df[is.na(merged_df$filtered),]$filtered = 0
 ggplot(raw_comp_df, aes(x = call_rate_i, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Call Rates Grouped by Variant Regions, Overlapping Variants (No-Filter)") +
+  ggtitle("Density of Call Rates Grouped by Variant Regions.\nOverlapping Variants (No-Filter)") +
   scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region (1,162,944") +
   labs(x="Call Rate", y="Density Percentage") +
    theme(
@@ -411,7 +415,7 @@ ggsave(
 ggplot(filter_comp_df_pass, aes(x = call_rate_i, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Call Rates Grouped by Overlapping Variant Regions, Overlapping Variants (Filter)") +
+  ggtitle("Density of Call Rates Grouped by Variant Regions.\nOverlapping Variants (Filter)") +
   scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region") +
   labs(x="Call Rate", y="Density Percentage") +
    theme(
@@ -433,9 +437,9 @@ ggsave(
 ggplot(raw_comp_df, aes(x = alt_freq_i, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Alt Freqs. Grouped by Variant Regions, Overlapping Variant (No-Filter)") +
+  ggtitle("Density of Alt. Freqs. Grouped by Variant Regions\nOverlapping Variants (No-Filter)") +
   scale_fill_discrete(labels=c("Exonic (325,019)", "Intronic (602,151)", "Non-Gene (100,244)"), name = "Region (1,162,944") +
-  labs(x="Alt Freq", y="Density Percentage") +
+  labs(x="Alt. Freq.", y="Density Percentage") +
    theme(
     legend.position = c(.90, .95),
     legend.justification = c("right", "top"),
@@ -455,9 +459,9 @@ ggsave(
 ggplot(filter_comp_df_pass, aes(x = alt_freq_i, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Alt Freqs Grouped by Variant Regions, Overlapping Variant (Filter)") +
+  ggtitle("Density of Alt. Freqs Grouped by Variant Regions.\nOverlapping Variant (Filter)") +
   scale_fill_discrete(labels=c("Exonic (64,880)", "Intronic (16,716)", "Non-Gene (1,684)"), name = "Region (83,280)") +
-  labs(x="Alt Freq", y="Density Percentage") +
+  labs(x="Alt. Freq.", y="Density Percentage") +
    theme(
     legend.position = c(.90, .95),
     legend.justification = c("right", "top"),
@@ -474,23 +478,10 @@ ggsave(
   dpi = 300
 )
 
-# Basic histogram
-ggplot(raw_comp_df, aes(x=is_indel)) + geom_histogram()
-# Change the width of bins
-ggplot(raw_comp_df, aes(x=is_indel)) + 
-  geom_histogram(binwidth=1)
-# Change colors
-p<-ggplot(raw_comp_df, aes(x=is_indel)) + 
-  geom_histogram(color="black", fill="white")
-p
-
-
-ggplot(filter_comp_df_pass, aes(x=is_indel)) + geom_histogram()
-
 ggplot(raw_all_df, aes(x = call_rate, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Call Rates Grouped by Variant Regions, All variants (No Filter)") +
+  ggtitle("Density of Call Rates Grouped by Variant Regions\nAll Called Variants (No Filter)") +
   scale_fill_discrete(labels=c("Exonic (967,967)", "Intronic (2,239,287)", "Non-Gene (288,562)"), name = "Region. (3,495,816)") +
   labs(x="Call Rate", y="Density Percentage") +
    theme(
@@ -512,7 +503,7 @@ ggsave(
 ggplot(filter_all_df, aes(x = call_rate, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Call Rates Grouped by Variant Regions, All variants (Filter)") +
+  ggtitle("Density of Call Rates Grouped by Variant Regions\nAll Called Variants (Filter)") +
   scale_fill_discrete(labels=c("Exonic (86,303)", "Intronic (30,549)", "Non-Gene (2,915)"), name = "Region. (119,767)") +
   labs(x="Call Rate", y="Density Percentage") +
    theme(
@@ -523,7 +514,7 @@ ggplot(filter_all_df, aes(x = call_rate, fill = var_status)) +
     )
 
 ggsave(
-  "figures/all_filter_call_rate.png",
+  "figures/all_filter_call_rates.png",
   plot = last_plot(),
   scale = 1,
   width = 12,
@@ -531,16 +522,12 @@ ggsave(
   dpi = 300
 )
 
-
-filter_non_overlap_df = subset(filter_all_df, !(filter_all_df$var_id %in% filter_comp_df$var_id))
-raw_non_overlap_df = subset(raw_comp_df, !(raw_all_df$var_id %in% raw_comp_df$var_id))
-
 ggplot(filter_non_overlap_df, aes(x = alt_freq, fill = var_status)) +
   geom_density(alpha= 0.5) +
   scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
-  ggtitle("Density of Alt. Frequencies Grouped by Variant Regions Non-Overlappping variants (Filter)") +
+  ggtitle("Density of Alt. Freqs. Grouped by Variant Regions.\nNon-Overlappping variants (Filter)") +
   scale_fill_discrete(labels=c("Exonic (17,001)", "Intronic (12,412)", "Non-Gene (1,005)"), name = "Region. (30,418)") +
-  labs(x="Alt. Freq", y="Density Percentage") +
+  labs(x="Alt. Freq.", y="Density Percentage") +
    theme(
     legend.position = c(.90, .95),
     legend.justification = c("right", "top"),
@@ -557,7 +544,113 @@ ggsave(
   dpi = 300
 )
 
+ggplot(raw_non_overlap_df, aes(x = alt_freq, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Alt. Freqs. Grouped by Variant Regions.\nNon-Overlappping variants (No-Filter)") +
+  scale_fill_discrete(labels=c("Exonic (609,785)", "Intronic (1,552,430)", "Non-Gene (170,657)"), name = "Region. (2,332,872)") +
+  labs(x="Alt. Freq.", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
 
+ggsave(
+  "figures/non_overlap_raw_alt_freq.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
 
-ggplot(filter_comp_df_pass, aes(x=is_indel)) + geom_histogram()
+ggplot(filter_non_overlap_df, aes(x = call_rate, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Call Rates Grouped by Variant Regions.\nNon-Overlappping variants (Filter)") +
+  scale_fill_discrete(labels=c("Exonic (17,001)", "Intronic (12,412)", "Non-Gene (1,005)"), name = "Region. (30,418)") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/non_overlap_filter_call_rate.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+ggplot(raw_non_overlap_df, aes(x = call_rate, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Call Rates Grouped by Variant Regions.\nNon-Overlappping variants (No-Filter)") +
+  scale_fill_discrete(labels=c("Exonic (609,785)", "Intronic (1,552,430)", "Non-Gene (170,657)"), name = "Region. (2,332,872)") +
+  labs(x="Call Rate", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/non_overlap_raw_call_arte.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+ggplot(raw_all_df, aes(x = alt_freq, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Alt.Freqs. Grouped by Variant Regions\nAll Called Variants (No Filter)") +
+  scale_fill_discrete(labels=c("Exonic (967,967)", "Intronic (2,239,287)", "Non-Gene (288,562)"), name = "Region. (3,495,816)") +
+  labs(x="Alt. Freq", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/all_raw_alt_freqs.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+ggplot(filter_all_df, aes(x = alt_freq, fill = var_status)) +
+  geom_density(alpha= 0.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1, scale = 1)) +
+  ggtitle("Density of Alt.Freqs. Grouped by Variant Regions\nAll Called Variants (No Filter)") +
+  scale_fill_discrete(labels=c("Exonic (86,303)", "Intronic (30,549)", "Non-Gene (2,915)"), name = "Region. (119,767)") +
+  labs(x="Alt. Freq", y="Density Percentage") +
+   theme(
+    legend.position = c(.90, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+    )
+
+ggsave(
+  "figures/all_filter_alt_freqs.png",
+  plot = last_plot(),
+  scale = 1,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
 ```
