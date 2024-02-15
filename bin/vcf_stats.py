@@ -79,12 +79,15 @@ class VcfStat:
         # Zip to iterate over both record values and track index.
         for i, entry in enumerate(variant):
             match i:  # Match the index value.
-                case 0 | 1 | 2 | 5 | 6 | 7:  # Values on these indexes are not relevant.
+                case 0 | 1 | 2 | 5 | 7:  # Values on these indexes are not relevant.
                     continue
                 
                 case 3 | 4:  # Check whether ref or alt contains an indel.
                     if len(entry) > 1:
                         is_indel = 1
+                
+                case 6:
+                    gq = entry
 
                 case 8:  # Initialse the format column indicators/headers.
                     val_dict = {}
@@ -104,7 +107,6 @@ class VcfStat:
                     # Save genotypes in seperate var.
                     gt = val_dict["GT"]
                     ad = val_dict["AD"]
-                    gq += val_dict["GQ"]
 
                     if "." in gt:
                         missing += 1
@@ -133,8 +135,6 @@ class VcfStat:
         a_freq, b_freq = self.get_freqs(maf, maf_type)
         # Get HWE
         hwe = self.calc_hwe(nr_aa, nr_ab, nr_bb)
-        if sample_size != 0 and gq != 0:
-            gq = gq/sample_size
 
     # Return a constructed row string for immediate output writing.
         return (
