@@ -74,10 +74,6 @@ class get_region:
         ...
     
     def get_regions(self):
-        genes = self.annotation.getGenesByChromosome()
-        chrom = Chromosome.parse(str(self.chr))
-        genes = genes[chrom]
-        variant_list = []
         with gzip.open(self.output, "wt") as fo:
             if self.mode == "comp":
                 fo.write(
@@ -134,16 +130,51 @@ class get_region:
                 + "var_status\n"        
                 )
 
+            self.get_genes()
             with gzip.open(self.tsv, "rt") as f:
                 spamreader = csv.reader(f, delimiter='\t')
                 next(spamreader, None)
                 for row in spamreader:
-                    variant_list.append(row)
-                    if len(variant_list) == self.chunk_size:
-                        self.compare(variant_list, genes, fo)
-                        variant_list = []
-                self.compare(variant_list, genes, fo)
-                variant_list = []
+                    variant = row
+                    pos = int(variant[0].split(":")[1])
+                    chr_str = str(variant[0].split(":")[0][3:])
+                    chrom = Chromosome.parse(chr_str)
+                    genes = self.genes_by_chr[chrom]
+                    overlapGenes = []
+                    gene_types = []
+                    overlapTranscripts = []
+                    overlapExons = []
+                    region_status = "nan"
+                    for gene in genes:
+                        if pos >= gene.start and pos <= gene.stop:
+                            overlapGenes.append(gene)
+                        if pos > gene.stop:
+                            continue
+
+                    if len(overlapGenes) > 0:
+                        for gene in overlapGenes:
+                            gene_types.append(gene.type)
+                            transcripts = gene.transcripts
+                            for transcript in transcripts:
+                                if pos >= transcript.start and pos <= transcript.stop:
+                                    overlapTranscripts.append(transcript.name)
+                                    if region_status != "exonic":
+                                        region_status = "intronic"
+                                    exons = transcript.exons
+                                    for exon in exons:
+                                        if pos >= exon.start and pos <= exon.stop:
+                                            overlapExons.append(exon.name)
+                                            region_status = "exonic"
+                    
+                    overlapTranscripts = ":".join(overlapTranscripts)
+                    overlapExons = ":".join(overlapExons)
+                    gene_types = ":".join(gene_types)
+                    variant.append(gene_types)
+                    variant.append(overlapTranscripts)
+                    variant.append(overlapExons)
+                    variant.append(region_status)
+                    variant_str = "\t".join(variant) + "\n"
+                    fo.write(variant_str) 
 
     def compare(self, variant_list, genes, fo):
         for variant in variant_list:
