@@ -37,6 +37,17 @@ def arg_parse():
 
     # Parser init
     parser = argparse.ArgumentParser(prog="VcfCompare")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
+        "-all",
+        action="store_true",
+        help="Run the program in Server mode; see extra options needed below",
+    )
+    mode.add_argument(
+        "-comp",
+        action="store_true",
+        help="Run the program in Client mode; see extra options needed below",
+    )
     parser.add_argument("-i", "--tsv", type=str)
     parser.add_argument("-g", "--gtf", type=str)
     parser.add_argument("-c", "--chr", type=str)
@@ -45,7 +56,8 @@ def arg_parse():
     return parser.parse_args()
 
 class get_region:
-    def __init__(self, tsv, gtf, chr, chunk_size, output):
+    def __init__(self, mode, tsv, gtf, chr, chunk_size, output):
+        self.mode = mode
         self.tsv = tsv
         self.chunk_size = chunk_size
         self.chr = int(chr[3:])
@@ -66,40 +78,63 @@ class get_region:
         chrom = Chromosome.parse(str(self.chr))
         genes = genes[chrom]
         variant_list = []
-        with open(self.output, "w+") as fo:
-            fo.write(
-            "var_id\t"
-            + "is_indel\t"
-            + "sample_size\t"
-            + "nrhoma_i\t"
-            + "nrhets_i\t"
-            + "nrhomb_i\t"
-            + "nrhoma_r\t"
-            + "nrhets_r\t" 
-            + "nrhomb_r\t"
-            + "matching\t"
-            + "match_ratio\t"
-            + "maf_i\t"
-            + "maf_r\t"
-            + "hwe_i\t"
-            + "hwe_r\t"
-            + "p_corr\t"
-            + "s_corr\t"
-            + "missing_i\t"
-            + "missing_r\t"
-            + "gt_total\t"
-            + "maf_type_i\t"
-            + "maf_type_r\t"
-            + "pass_r\t"
-            + "gq_i\t"
-            + "gq_r\t"
-            + "match\t"
-            + "gene_types\t"
-            + "transcripts\t"
-            + "exons\t"
-            + "var_status\n"
-            )
-            with open(self.tsv, "r+") as f:
+        with gzip.open(self.output, "wt") as fo:
+            if self.mode == "comp":
+                fo.write(
+                "var_id\t"
+                + "is_indel\t"
+                + "sample_size\t"
+                + "nrhoma_i\t"
+                + "nrhets_i\t"
+                + "nrhomb_i\t"
+                + "nrhoma_r\t"
+                + "nrhets_r\t" 
+                + "nrhomb_r\t"
+                + "matching\t"
+                + "match_ratio\t"
+                + "maf_i\t"
+                + "maf_r\t"
+                + "hwe_i\t"
+                + "hwe_r\t"
+                + "p_corr\t"
+                + "s_corr\t"
+                + "missing_i\t"
+                + "missing_r\t"
+                + "gt_total\t"
+                + "maf_type_i\t"
+                + "maf_type_r\t"
+                + "pass_r\t"
+                + "gq_i\t"
+                + "gq_r\t"
+                + "gene_types\t"
+                + "transcripts\t"
+                + "exons\t"
+                + "var_status\n"
+                )
+            
+            elif self.mode == "all":
+                fo.write(
+                "var_id\t"
+                + "is_indel\t"
+                + "sample_size\t"
+                + "nr_aa\t"
+                + "nr_ab\t"
+                + "nr_bb\t"
+                + "maf\t"
+                + "hwe\t"
+                + "missing\t"
+                + "gt_total\t"
+                + "maf_type\t"
+                + "gq\t"
+                + "ref_freq\t"
+                + "alt_freq\t"
+                + "gene_types\t"
+                + "transcripts\t"
+                + "exons\t"
+                + "var_status\n"        
+                )
+
+            with gzip.open(self.tsv, "rt") as f:
                 spamreader = csv.reader(f, delimiter='\t')
                 next(spamreader, None)
                 for row in spamreader:
@@ -154,7 +189,13 @@ def main(args):
     """Main function"""
     # Get args.
     args = arg_parse()
-    getter = get_region(args.tsv, args.gtf, args.chr, args.chunk_size, args.output)
+    if args.comp:
+        mode = "comp"
+
+    elif args.all:
+        mode = "all"
+
+    getter = get_region(mode, args.tsv, args.gtf, args.chr, args.chunk_size, args.output)
     getter.get_regions()
     # FINISH
     return 0
