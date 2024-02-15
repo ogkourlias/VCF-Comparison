@@ -44,14 +44,7 @@ def arg_parse():
     parser.add_argument("-chr", "--chr", type=str)
     parser.add_argument("-o", "--output", type=str)
     parser.add_argument("-n", "--chunk", type=int)
-    parser.add_argument("-non", "--non_output", type=str)
     return parser.parse_args()
-
-
-class Allele(Enum):
-    ALT = 1
-    REF = 2
-
 
 def open_tbi(input_file):
 
@@ -63,7 +56,7 @@ def open_tbi(input_file):
     return tabix.open(input_file)
 
 
-def compare(chr, start, stop, recs_i, r_handle, headers, chunksize):
+def compare(chr, start, stop, recs_i, r_handle, headers):
 
     """
     Takes chromosome entry from nextflow process and compare record entries between two files.
@@ -96,12 +89,9 @@ def compare(chr, start, stop, recs_i, r_handle, headers, chunksize):
                 results.append(
                     record_extract(i_record, r_record, list(headers.values()))
                 )
-    
-    non_match = [non_match_extract(record) for record in i_records]
-    
 
     # Return resultss as list of strings.
-    return results, non_match
+    return results
 
 
 def header_subset(input_headers_r, comp_headers_r):
@@ -172,7 +162,7 @@ def header_subset_gtex(input_headers_r, comp_headers_r):
     return head_idx
 
 
-def process_file(chr, i_handle, r_handle, headers, output, non_output, chunksize=1000):
+def process_file(chr, i_handle, r_handle, headers, output, chunksize=1000):
     """Retrieves the start and stop positions of relevant vcf
     selection.
 
@@ -184,7 +174,7 @@ def process_file(chr, i_handle, r_handle, headers, output, non_output, chunksize
         string, string: number strings of start and stop range.
     """
     # Get start and stop positions of chr selection.
-    with open(output, "w") as fo, open(non_output, "w") as non_fo:
+    with gzip.open(output, "wt") as fo:
 
         # Write headers to output file.
         fo.write(
@@ -212,38 +202,7 @@ def process_file(chr, i_handle, r_handle, headers, output, non_output, chunksize
             + "maf_type_r\t"
             + "pass_r\t"
             + "gq_i\t"
-            + "gq_r\t"
-            + "match\n"
-        )
-
-        # Write headers to output file.
-        non_fo.write(
-            "var_id\t"
-            + "is_indel\t"
-            + "sample_size\t"
-            + "nrhoma_i\t"
-            + "nrhets_i\t"
-            + "nrhomb_i\t"
-            + "nrhoma_r\t"
-            + "nrhets_r\t" 
-            + "nrhomb_r\t"
-            + "matching\t"
-            + "match_ratio\t"
-            + "maf_i\t"
-            + "maf_r\t"
-            + "hwe_i\t"
-            + "hwe_r\t"
-            + "p_corr\t"
-            + "s_corr\t"
-            + "missing_i\t"
-            + "missing_r\t"
-            + "gt_total\t"
-            + "maf_type_i\t"
-            + "maf_type_r\t"
-            + "pass_r\t"
-            + "gq_i\t"
-            + "gq_r\t"
-            + "match\n"
+            + "gq_r\n"
         )
 
         # Open outputfile first for output writing.
@@ -258,34 +217,30 @@ def process_file(chr, i_handle, r_handle, headers, output, non_output, chunksize
                     recs.append(line.split("\t"))
 
                 if len(recs) == chunksize:
-                    results, non_results = compare(
+                    results = compare(
                         chr,
                         int(recs[0][1]) - 1000,
                         int(recs[-1][1]) + 1000,
                         recs,
                         r_handle,
-                        headers,
-                        chunksize,
+                        headers
                     )
                     recs = []
                     # Write the results to output file.
                     fo.write("".join(results))
-                    non_fo.write("".join(non_results))
 
             if len(recs) != 0:
-                results, non_results = compare(
+                results = compare(
                     chr,
                     int(recs[0][1]) - 1000,
                     int(recs[-1][1]) + 1000,
                     recs,
                     r_handle,
-                    headers,
-                    chunksize,
+                    headers
                 )
                 recs = []
                 # Write the results to output file.
                 fo.write("".join(results))
-                non_fo.write("".join(non_results))
 
     return 0
 
@@ -332,6 +287,8 @@ def record_extract(i_record, r_record, head_idx):
     # Construct identifier string for the record/row.
     var_id = f"{i_record[0]}:{i_record[1]}:{i_record[3]}_{i_record[4]}"
 
+    gq_i = 0
+    gq_r = 0
     # Selection is same length because of column index selection.
     # Zip to iterate over both record values and track index.
     for i, (entry_i, entry_r) in enumerate(zip(i_record, r_record)):
@@ -372,8 +329,8 @@ def record_extract(i_record, r_record, head_idx):
                 ad_i = val_dict_i["AD"]
                 ad_r = val_dict_r["AD"]
 
-                gq_i = val_dict_i["GQ"]
-                gq_r = val_dict_r["GQ"]
+                gq_i += val_dict_i["GQ"]
+                gq_r += val_dict_r["GQ"]
 
                 if "." in gt_i:
                     missing_i += 1
@@ -437,6 +394,13 @@ def record_extract(i_record, r_record, head_idx):
     else:
         match_ratio = "nan"
 
+
+    if sample_size != 0 and gq_i != 0:
+        gq_i = gq_i/sample_size
+
+    if sample_size != 0 and gq_r != 0:
+        gq_r = gq_r/sample_size
+            
     # Return a constructed row string for immediate output writing.
     return (
         f"{var_id}\t{is_indel}\t{sample_size}\t"
@@ -449,117 +413,8 @@ def record_extract(i_record, r_record, head_idx):
         f"{missing_i}\t{missing_r}\t{gt_total}\t"
         f"{maf_type_i}\t{maf_type_r}\t"
         f"{pass_r}\t"
-        f"{gq_i}\t{gq_r}\t"
-        f"1\n"
+        f"{gq_i}\t{gq_r}\n"
     )
-
-def non_match_extract(i_record):
-    """Extracts the relevant intersection information from two tabix records.
-
-    Args:
-        i_record (list): list containing record entries for input file.
-        head_idx (dict): header indexes
-
-    Returns:
-        string: string to be written to output file.
-    """
-    # Get a column value for each row if header/column index is present in both files.
-
-    # sample_size and indel variables.
-    sample_size = 0
-    is_indel = 0
-
-    # Alele count trackers for input.
-    nrhoma_i = 0
-    nrhets_i = 0
-    nrhomb_i = 0
-
-    # Genotype lists for use in pearson corr.
-    gt_list_i = []
-
-    # Count of mathcing gts
-    matching = 0
-    missing_i = 0
-    gt_total = 0
-
-    # Construct identifier string for the record/row.
-    var_id = f"{i_record[0]}:{i_record[1]}:{i_record[3]}_{i_record[4]}"
-
-    # Selection is same length because of column index selection.
-    # Zip to iterate over both record values and track index.
-    for i, entry_i in enumerate(i_record):
-        match i:  # Match the index value.
-            case 0 | 1 | 2 | 5 | 6 | 7:  # Values on these indexes are not relevant.
-                continue
-            
-            case 3 | 4:  # Check whether ref or alt contains an indel.
-                if len(entry_i) > 1:
-                    is_indel = 1
-
-            case 8:  # Initialse the format column indicators/headers.
-                val_dict_i = {}
-
-                # Store format indication/header into a dictionary with empty values.
-                for ind_i in entry_i.split(":"):
-                    val_dict_i[ind_i] = "./."
-
-            case other:  # Sample rows.
-                gt_total += 1
-                # Assign values in format order.
-                for key_i, val_i in zip(
-                    val_dict_i, entry_i.split(":")
-                ):
-                    val_dict_i[key_i] = val_i
-
-                # Save genotypes in seperate var.
-                gt_i = val_dict_i["GT"]
-                ad_i = val_dict_i["AD"]
-                gq_i = val_dict_i["GQ"]
-
-                if "." in gt_i:
-                    missing_i += 1
-
-                # Split and save genotype numbers for sum.
-                # Example: "1/0" becomes list: [1,0]
-                vals_i = gt_i.replace("|", "/").split("/")
-
-                # Check whether genotypes are the same between files.
-                # Also check whether they are not missing genotypes.
-                if vals_i[0] != ".":
-                    sample_size += 1
-                    gt_i = int(vals_i[0]) + int(vals_i[1])
-                    gt_list_i.append(gt_i)
-
-                    match (gt_i):
-                        case 0:
-                            nrhoma_i += 1
-                        case 1:
-                            nrhets_i += 1
-                        case 2:
-                            nrhomb_i += 1
-                    
-
-    maf_i, maf_type_i = calc_maf(nrhoma_i, nrhets_i, nrhomb_i)
-
-    # Get HWE
-    hwe_i = calc_hwe(nrhoma_i, nrhets_i, nrhomb_i)
-
-    # Return a constructed row string for immediate output writing.
-    return (
-        f"{var_id}\t{is_indel}\t{sample_size}\t"
-        f"{nrhoma_i}\t{nrhets_i}\t{nrhomb_i}\t"
-        f"nan\tnan\tnan\t"
-        f"{matching}\tnan\t"
-        f"{maf_i}\tnan\t"
-        f"{hwe_i}\tnan\t"
-        f"nan\tnan\t"
-        f"{missing_i}\tnan\t{gt_total}\t"
-        f"{maf_type_i}\tnan\t"
-        f"nan\t"
-        f"{gq_i}\tnan\t"
-        f"0\n"
-    )
-
 
 def calc_maf(nrhoma, nrhets, nrhomb):
     sample_size = nrhoma + nrhomb + nrhets
@@ -688,7 +543,7 @@ def main(args):
     # Get headers
     headers = header_subset_gtex(args.input_header, args.comp_header)
     # Perform comparison and write output.
-    process_file(args.chr, args.file, args.reference, headers, args.output, args.non_output, args.chunk)
+    process_file(args.chr, args.file, args.reference, headers, args.output, args.chunk)
     # FINISH
     return 0
 
