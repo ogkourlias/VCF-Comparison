@@ -2,9 +2,7 @@
 
 """
     usage:
-        ./vcf_rompare.py -f [INPUT VCF FILE] -r [VCF COMPARISON FILE]
-        -ih [INPUT HEADERS TEXT FILE] -ch [COMPARISON HEADER TEXT FILE]
-        -chr [CHROMOSOME TEXT FILE] -n [CHUNKSIZE (Variant amount per run)]
+        ./vcf_rompare.py -i [INPUT VCF.GZ FILE] -G [GTF REF FILE] -o [OUTPUT.TSV.GZ FILE]
 """
 
 # METADATA VARIABLES
@@ -37,124 +35,147 @@ def arg_parse():
 
     # Parser init
     parser = argparse.ArgumentParser(prog="VcfCompare")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
+        "-all",
+        action="store_true",
+        help="Run the program in Server mode; see extra options needed below",
+    )
+    mode.add_argument(
+        "-comp",
+        action="store_true",
+        help="Run the program in Client mode; see extra options needed below",
+    )
     parser.add_argument("-i", "--tsv", type=str)
     parser.add_argument("-g", "--gtf", type=str)
-    parser.add_argument("-c", "--chr", type=str)
-    parser.add_argument("-n", "--chunk_size", type=int, default=10000)
     parser.add_argument("-o", "--output", type=str)
     return parser.parse_args()
 
 class get_region:
-    def __init__(self, tsv, gtf, chr, chunk_size, output):
+    def __init__(self, mode, tsv, gtf, output):
+        self.mode = mode
         self.tsv = tsv
-        self.chunk_size = chunk_size
-        self.chr = int(chr[3:])
         self.output = output
         self.annotation = GTFAnnotation(gtf)
     
     def get_genes(self):
         self.genes_by_chr = self.annotation.getGenesByChromosome()
-
-    def get_transcripts(self):
-        ...
-
-    def get_exons(self):
-        ...
     
     def get_regions(self):
-        genes = self.annotation.getGenesByChromosome()
-        chrom = Chromosome.parse(str(self.chr))
-        genes = genes[chrom]
-        variant_list = []
-        with open(self.output, "w+") as fo:
-            fo.write(
-            "var_id\t"
-            + "is_indel\t"
-            + "sample_size\t"
-            + "nrhoma_i\t"
-            + "nrhets_i\t"
-            + "nrhomb_i\t"
-            + "nrhoma_r\t"
-            + "nrhets_r\t" 
-            + "nrhomb_r\t"
-            + "matching\t"
-            + "match_ratio\t"
-            + "maf_i\t"
-            + "maf_r\t"
-            + "hwe_i\t"
-            + "hwe_r\t"
-            + "p_corr\t"
-            + "s_corr\t"
-            + "missing_i\t"
-            + "missing_r\t"
-            + "gt_total\t"
-            + "maf_type_i\t"
-            + "maf_type_r\t"
-            + "pass_r\t"
-            + "gq_i\t"
-            + "gq_r\t"
-            + "match\t"
-            + "gene_types\t"
-            + "transcripts\t"
-            + "exons\t"
-            + "var_status\n"
-            )
-            with open(self.tsv, "r+") as f:
+        with gzip.open(self.output, "wt") as fo:
+            if self.mode == "comp":
+                fo.write(
+                "var_id\t"
+                + "is_indel\t"
+                + "sample_size\t"
+                + "nrhoma_i\t"
+                + "nrhets_i\t"
+                + "nrhomb_i\t"
+                + "nrhoma_r\t"
+                + "nrhets_r\t" 
+                + "nrhomb_r\t"
+                + "matching\t"
+                + "match_ratio\t"
+                + "maf_i\t"
+                + "maf_r\t"
+                + "hwe_i\t"
+                + "hwe_r\t"
+                + "p_corr\t"
+                + "s_corr\t"
+                + "missing_i\t"
+                + "missing_r\t"
+                + "gt_total\t"
+                + "maf_type_i\t"
+                + "maf_type_r\t"
+                + "pass_r\t"
+                + "gq_i\t"
+                + "gq_r\t"
+                + "gene_types\t"
+                + "transcripts\t"
+                + "exons\t"
+                + "var_status\n"
+                )
+            
+            elif self.mode == "all":
+                fo.write(
+                "var_id\t"
+                + "is_indel\t"
+                + "sample_size\t"
+                + "nr_aa\t"
+                + "nr_ab\t"
+                + "nr_bb\t"
+                + "maf\t"
+                + "hwe\t"
+                + "missing\t"
+                + "gt_total\t"
+                + "maf_type\t"
+                + "gq\t"
+                + "ref_freq\t"
+                + "alt_freq\t"
+                + "gene_types\t"
+                + "transcripts\t"
+                + "exons\t"
+                + "var_status\n"        
+                )
+
+            self.get_genes()
+            with gzip.open(self.tsv, "rt") as f:
                 spamreader = csv.reader(f, delimiter='\t')
                 next(spamreader, None)
                 for row in spamreader:
-                    variant_list.append(row)
-                    if len(variant_list) == self.chunk_size:
-                        self.compare(variant_list, genes, fo)
-                        variant_list = []
-                self.compare(variant_list, genes, fo)
-                variant_list = []
+                    variant = row
+                    pos = int(variant[0].split(":")[1])
+                    chr_str = str(variant[0].split(":")[0][3:])
+                    chrom = Chromosome.parse(chr_str)
+                    genes = self.genes_by_chr[chrom]
+                    overlapGenes = []
+                    gene_types = []
+                    overlapTranscripts = []
+                    overlapExons = []
+                    region_status = "nan"
+                    for gene in genes:
+                        if pos >= gene.start and pos <= gene.stop:
+                            overlapGenes.append(gene)
+                        if pos > gene.stop:
+                            continue
 
-    def compare(self, variant_list, genes, fo):
-        for variant in variant_list:
-            pos = int(variant[0].split(":")[1])
-            overlapGenes = []
-            region_status = "nan"
-            gene_types = []
-            overlapTranscripts = []
-            overlapExons = []
-            for gene in genes:
-                if pos >= gene.start and pos <= gene.stop:
-                    overlapGenes.append(gene)
-            
-            if len(overlapGenes) > 0:
-                for gene in overlapGenes:
-                    gene_types.append(gene.type)
-                    transcripts = gene.transcripts
-                    for transcript in transcripts:
-                        if pos >= transcript.start and pos <= transcript.stop:
-                            overlapTranscripts.append(transcript.name)
-                            if region_status != "exonic":
-                                region_status = "intronic"
-                            exons = transcript.exons
-                            for exon in exons:
-                                if pos >= exon.start and pos <= exon.stop:
-                                    overlapExons.append(exon.name)
-                                    region_status = "exonic"
-            
-            overlapTranscripts = ":".join(overlapTranscripts)
-            overlapExons = ":".join(overlapExons)
-            gene_types = ":".join(gene_types)
+                    if len(overlapGenes) > 0:
+                        for gene in overlapGenes:
+                            gene_types.append(gene.type)
+                            transcripts = gene.transcripts
+                            for transcript in transcripts:
+                                if pos >= transcript.start and pos <= transcript.stop:
+                                    overlapTranscripts.append(transcript.name)
+                                    if region_status != "exonic":
+                                        region_status = "intronic"
+                                    exons = transcript.exons
+                                    for exon in exons:
+                                        if pos >= exon.start and pos <= exon.stop:
+                                            overlapExons.append(exon.name)
+                                            region_status = "exonic"
                     
-            
-            variant.append(gene_types)
-            variant.append(overlapTranscripts)
-            variant.append(overlapExons)
-            variant.append(region_status)
-            variant_str = "\t".join(variant) + "\n"
-            fo.write(variant_str)
+                    overlapTranscripts = ":".join(overlapTranscripts)
+                    overlapExons = ":".join(overlapExons)
+                    gene_types = ":".join(gene_types)
+                    variant.append(gene_types)
+                    variant.append(overlapTranscripts)
+                    variant.append(overlapExons)
+                    variant.append(region_status)
+                    variant_str = "\t".join(variant) + "\n"
+                    fo.write(variant_str) 
     
 # MAIN
 def main(args):
     """Main function"""
     # Get args.
     args = arg_parse()
-    getter = get_region(args.tsv, args.gtf, args.chr, args.chunk_size, args.output)
+    if args.comp:
+        mode = "comp"
+
+    elif args.all:
+        mode = "all"
+
+    getter = get_region(mode, args.tsv, args.gtf, args.output)
     getter.get_regions()
     # FINISH
     return 0
