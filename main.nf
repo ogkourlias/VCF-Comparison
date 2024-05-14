@@ -82,7 +82,7 @@ process chrComp {
 }
 
 process allStats {
-  // publishDir "${params.outDir}", mode: 'move'
+  publishDir "${params.outDir}", mode: 'copy'
   containerOptions '--bind /groups/'
   errorStrategy 'retry'
   time '6h'
@@ -176,11 +176,9 @@ process get_region_comp {
 process get_region_all {
   publishDir "${params.outDir}", mode: 'move'
   containerOptions '--bind /groups/'
-  errorStrategy 'retry'
   time '6h'
   memory '4 GB'
   cpus 1
-  maxRetries 12
 
   input:
   path tsv_file
@@ -194,14 +192,12 @@ process get_region_all {
   get_region.py -all \
   -i ${tsv_file} \
   -g ${params.gtf_file} \
-  -c ${tsv_file.simpleName} \
-  -n ${params.chunkSize} \
   -o all/${tsv_file}
   gzip all/${tsv_file}
   """
 }
 
-workflow {
+workflow comp {
   vcf_chr_files = Channel.fromPath("${params.vcf_input}/*.vcf.gz", type: 'file')
   indexVcf(vcf_chr_files)
   getHeaders(indexVcf.output.vcf_file, indexVcf.output.tbi_file, params.vcf_ref, params.vcf_ref_tbi)  
@@ -209,5 +205,12 @@ workflow {
    getHeaders.output.input_headers, getHeaders.output.ref_headers)
   allStats(vcf_chr_files)
   get_region_comp(chrComp.output)
+  get_region_all(allStats.output)
+  }
+
+  workflow stats {
+  vcf_chr_files = Channel.fromPath("${params.vcf_input}/*.vcf.gz", type: 'file')
+  indexVcf(vcf_chr_files)
+  allStats(vcf_chr_files)
   get_region_all(allStats.output)
   }
